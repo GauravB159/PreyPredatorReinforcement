@@ -291,15 +291,23 @@ class PreyPredatorEnv(AECEnv):
             self.prey_text = self.myfont.render(f'Prey: {num_prey}', False, (0, 0, 0))
             self.stored_num_prey = num_prey
         self.food_text = self.myfont.render(f'Food: {len(self.food_positions)}', False, (0, 0, 0))
+        prey_energy = [self.agents_energy[k] for k in self.agents_energy if "prey" in k]
+        predator_energy = [self.agents_energy[k] for k in self.agents_energy if "predator" in k]
+        self.average_prey_energy_text = self.myfont.render(f'Prey Energy: {sum(prey_energy) / len(prey_energy):.2f}', False, (0, 0, 0))
+        self.average_predator_energy_text = self.myfont.render(f'Predator Energy: {sum(predator_energy) / len(predator_energy):.2f}', False, (0, 0, 0))
         # Calculate positions for text (top right corner)
         prey_text_pos = self.screen.get_width() - self.prey_text.get_width() - 10
         predator_text_pos = self.screen.get_width() - self.predator_text.get_width() - 10
         food_text_pos = self.screen.get_width() - self.food_text.get_width() - 10
+        prey_energy_text_pos = self.screen.get_width() - self.average_prey_energy_text.get_width() - 10
+        predator_energy_text_pos = self.screen.get_width() - self.average_predator_energy_text.get_width() - 10
 
         # Draw the text surfaces onto the screen
         self.screen.blit(self.prey_text, (prey_text_pos, 10))
         self.screen.blit(self.predator_text, (predator_text_pos, 40))
         self.screen.blit(self.food_text, (food_text_pos, 70))
+        self.screen.blit(self.average_prey_energy_text, (prey_energy_text_pos, 100))
+        self.screen.blit(self.average_predator_energy_text, (predator_energy_text_pos, 130))
 
         pygame.display.flip()
         self.clock.tick(60)  # Control the frame rate
