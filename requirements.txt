@@ -1,0 +1,7 @@
+## The following requirements were added by pip freeze:
+cloudpickle==3.0.0
+Farama-Notifications==0.0.4
+gymnasium==0.29.1
+numpy==1.26.4
+pettingzoo==1.24.3
+typing_extensions==4.10.0
