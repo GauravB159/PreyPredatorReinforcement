@@ -4,11 +4,12 @@ import numpy as np
 from gym import spaces
 import pygame
 import sys
+import random
 
 class PreyPredatorEnv(AECEnv):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, padding = 10):
+    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, padding = 10, food_probability = 0.05, food_energy_gain = 50):
         super().__init__()
         self.num_prey = num_prey
         self.num_predators = num_predators
@@ -30,6 +31,10 @@ class PreyPredatorEnv(AECEnv):
         
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
+        
+        self.food_probability = food_probability
+        self.food_energy_gain = food_energy_gain
+        self.food_positions = []
 
         # Initialize state variables
         self.reset()
@@ -72,6 +77,12 @@ class PreyPredatorEnv(AECEnv):
 
         # Optionally, include positions of other agents in the observation
         for other_agent, position in self.agents_positions.items():
+            if 'prey' in agent:
+                if abs(position[0] - agent_x) > 4 or abs(position[1] - agent_y) > 4:
+                    continue
+            else:
+                if abs(position[0] - agent_x) > 2 or abs(position[1] - agent_y) > 2:
+                    continue
             if agent != other_agent:  # Ensure we don't include the agent itself
                 if 'prey' in agent and 'prey' in other_agent or 'predator' in agent and 'predator' in other_agent:
                     # Mark positions of same type agents differently, for example, with a 2
@@ -98,10 +109,11 @@ class PreyPredatorEnv(AECEnv):
         self.infos = {agent: {} for agent in self.agents}
 
         self.steps = 0  # Reset step count
-
+        self.food_positions = []
         # Reset agent selector for turn-based action selection
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
+
 
     def step(self, action):
         agent = self.agent_selection
@@ -109,6 +121,11 @@ class PreyPredatorEnv(AECEnv):
         if not self.terminations[agent]:  # Proceed only if the agent's episode is not done
             # Apply action and update environment state
             if self.agents_alive[agent] and self.agents_energy[agent] > 0:  # Proceed only if the agent is alive, or has energy
+                if 'prey' in agent  and self.agents_positions.get(self.agent_selection) in self.food_positions:
+                    # Agent consumes food
+                    print(f"{self.agent_selection} has consumed food")
+                    self.agents_energy[self.agent_selection] += self.food_energy_gain
+                    self.food_positions.remove(self.agents_positions[self.agent_selection])
                 # Example movement action implementation
                 if action == 1:  # Move up
                     self.agents_positions[agent] = (max(self.agents_positions[agent][0] - 1, self.padding), self.agents_positions[agent][1])
@@ -192,27 +209,74 @@ class PreyPredatorEnv(AECEnv):
     def pygame_init(self):
         pygame.init()
         pygame.font.init()  # Initialize the font module
-        self.myfont = pygame.font.SysFont('Arial', 30)  # Create a font object (Arial, size 30)
+        self.myfont = pygame.font.SysFont('Roboto', 20)  # Create a font object (Arial, size 30)
         self.screen_size = 800  # Example size, adjust as needed
         self.cell_size = self.screen_size // self.grid_size
-        self.screen = pygame.display.set_mode((self.screen_size, self.screen_size))
+        self.screen = pygame.display.set_mode((self.screen_size + 200, self.screen_size))
         self.clock = pygame.time.Clock()  # For controlling the frame rate
+        green_shades = [(34, 139, 34), (0, 128, 0), (50, 205, 50)]
+
+        # Function to create a grass-like pattern on a new surface
+        self.grass_surface = pygame.Surface((self.screen_size, self.screen_size))
+        for x in range(self.screen_size):
+            for y in range(self.screen_size):
+                grass_color = random.choice(green_shades)
+                self.grass_surface.set_at((x, y), grass_color)
 
     def pygame_quit(self):
         pygame.quit()
         sys.exit()
 
-
     def render(self, mode='human'):
-        self.screen.fill((255, 255, 255))  # Fill the screen with white
+        if random.random() < self.food_probability:
+            # Add food at random positions, ensuring no duplicates
+            while True:
+                new_food_pos = (np.random.randint(self.grid_size), np.random.randint(self.grid_size))
+                if new_food_pos not in self.food_positions and new_food_pos not in self.agents_positions.values():
+                    self.food_positions.append(new_food_pos)
+                    break
+        if mode != 'human':
+            return
+        self.screen.fill((255, 255, 255))
+
+        # For transparency, we need a surface that supports alpha
+        viewport_size = 4
+        transparent_surface = pygame.Surface((self.cell_size * viewport_size * 2, self.cell_size * viewport_size * 2), pygame.SRCALPHA)
+
+        for food_pos in self.food_positions:
+            # Draw food on the grid, maybe as green squares
+            center_x = food_pos[0] * self.cell_size + self.cell_size // 2
+            center_y = food_pos[1] * self.cell_size + self.cell_size // 2
+            
+            # Define the size of the triangle
+            triangle_size = self.cell_size  # Adjust this value as needed
+            
+            # Calculate the points of the triangle (equilateral for simplicity)
+            point1 = (center_x, center_y - triangle_size // 2)
+            point2 = (center_x - triangle_size // 2, center_y + triangle_size // 2)
+            point3 = (center_x + triangle_size // 2, center_y + triangle_size // 2)
+            
+            # Draw the triangle
+            pygame.draw.polygon(self.screen, (17, 186, 17), [point1, point2, point3])
 
         for agent, (x, y) in self.agents_positions.items():
             if 'prey' in agent:
-                color = (0, 255, 0)  # Green for prey
+                color = (255, 189, 29)  # Yellow for prey
             else:
-                color = (255, 0, 0)  # Red for predator
+                color = (229, 48, 48) # Red for predator
 
-            pygame.draw.circle(self.screen, color, center=(x*self.cell_size, y*self.cell_size), radius=self.cell_size)
+            # Draw agent as a circle
+            if 'predator' in agent:
+                pygame.draw.circle(self.screen, color, center=(x*self.cell_size, y*self.cell_size), radius=self.cell_size)
+            else:
+                pygame.draw.rect(self.screen, color, [x*self.cell_size, y*self.cell_size, self.cell_size, self.cell_size])
+
+            # Reset transparency surface for each agent
+            transparent_surface.fill((0, 0, 0, 10))  # Clear with fully transparent fill
+            pygame.draw.rect(transparent_surface, (0, 0, 0, 10), transparent_surface.get_rect(), 1)  # Draw transparent rectangle
+            
+            # Blit the transparent surface onto the screen at the correct position, adjusting for the offset
+            self.screen.blit(transparent_surface, (x*self.cell_size - self.cell_size*viewport_size, y*self.cell_size - self.cell_size*viewport_size))
 
         pygame.display.flip()  # Update the full display Surface to the screen
         num_prey = sum('prey' in agent for agent in self.agents_positions.keys())
@@ -226,14 +290,16 @@ class PreyPredatorEnv(AECEnv):
         if num_prey != self.stored_num_prey:
             self.prey_text = self.myfont.render(f'Prey: {num_prey}', False, (0, 0, 0))
             self.stored_num_prey = num_prey
-
+        self.food_text = self.myfont.render(f'Food: {len(self.food_positions)}', False, (0, 0, 0))
         # Calculate positions for text (top right corner)
         prey_text_pos = self.screen.get_width() - self.prey_text.get_width() - 10
         predator_text_pos = self.screen.get_width() - self.predator_text.get_width() - 10
+        food_text_pos = self.screen.get_width() - self.food_text.get_width() - 10
 
         # Draw the text surfaces onto the screen
         self.screen.blit(self.prey_text, (prey_text_pos, 10))
         self.screen.blit(self.predator_text, (predator_text_pos, 40))
+        self.screen.blit(self.food_text, (food_text_pos, 70))
 
         pygame.display.flip()
         self.clock.tick(60)  # Control the frame rate

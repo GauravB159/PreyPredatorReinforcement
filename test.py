@@ -18,7 +18,6 @@ for episode in range(1):  # Run a single episode for testing
             action = simple_random_policy(agent)  # Decide action based on a simple policy
             env.step(action)  # Apply action
         env.render()  # Render the state of the environment
-        # print(f"Step: {count + 1}")
         count += 1
         if count > env.max_steps_per_episode:  # You need to define this condition
             break
