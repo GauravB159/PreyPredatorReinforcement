@@ -8,15 +8,17 @@ import sys
 class PreyPredatorEnv(AECEnv):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200):
+    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100):
         super().__init__()
         self.num_prey = num_prey
         self.num_predators = num_predators
         self.grid_size = grid_size
         self.initial_energy = initial_energy
         self.reproduction_energy = reproduction_energy
-        self.max_steps_per_episode = 100
-        self.energy_gain_from_eating = 1
+        self.stored_num_predators = -1
+        self.stored_num_prey = -1
+        self.max_steps_per_episode = max_steps_per_episode
+        self.energy_gain_from_eating = 5
         # Define action and observation space
         self.action_space = spaces.Discrete(5) # Example: 0 = stay, 1-4 = move in directions
         self.observation_space = spaces.Box(low=0, high=1, shape=(grid_size, grid_size, 3), dtype=np.float32)
@@ -75,9 +77,12 @@ class PreyPredatorEnv(AECEnv):
 
     def step(self, action):
         agent = self.agent_selection
+        if self.agents_energy[agent] <= 0:
+            self.agents_energy[agent] += 40
+    
         if not self.terminations[agent]:  # Proceed only if the agent's episode is not done
             # Apply action and update environment state
-            if self.agents_alive[agent]:  # Proceed only if the agent is alive
+            if self.agents_alive[agent] and self.agents_energy[agent] > 0:  # Proceed only if the agent is alive, or has energy
                 # Example movement action implementation
                 if action == 1:  # Move up
                     self.agents_positions[agent] = (max(self.agents_positions[agent][0] - 1, 0), self.agents_positions[agent][1])
@@ -89,7 +94,7 @@ class PreyPredatorEnv(AECEnv):
                     self.agents_positions[agent] = (self.agents_positions[agent][0], min(self.agents_positions[agent][1] + 1, self.grid_size - 1))
                 # Example energy consumption for moving
                 self.agents_energy[agent] -= 1  # Deduct energy for taking a step
-
+                
                 # Example interaction: Predation or eating
                 # You'll need to implement logic to check for such interactions based on positions and agent types
                 if 'predator' in self.agent_selection:
@@ -117,9 +122,6 @@ class PreyPredatorEnv(AECEnv):
             self._cumulative_rewards[agent] += reward
 
             # Example condition to check if the agent's episode is done
-            if self.agents_energy[agent] <= 0:  # Or any other condition
-                self.terminations[agent] = True
-                
             if self.steps >= self.max_steps_per_episode:
                 self.truncations[agent] = True
                 self.terminations[agent] = True  # Mark done as well when truncating
@@ -154,7 +156,7 @@ class PreyPredatorEnv(AECEnv):
         pygame.init()
         pygame.font.init()  # Initialize the font module
         self.myfont = pygame.font.SysFont('Arial', 30)  # Create a font object (Arial, size 30)
-        self.screen_size = 600  # Example size, adjust as needed
+        self.screen_size = 800  # Example size, adjust as needed
         self.cell_size = self.screen_size // self.grid_size
         self.screen = pygame.display.set_mode((self.screen_size, self.screen_size))
         self.clock = pygame.time.Clock()  # For controlling the frame rate
@@ -180,16 +182,21 @@ class PreyPredatorEnv(AECEnv):
         num_predators = sum('predator' in agent for agent in self.agents_positions.keys())
 
         # Render text surfaces
-        prey_text = self.myfont.render(f'Prey: {num_prey}', False, (0, 0, 0))
-        predator_text = self.myfont.render(f'Predators: {num_predators}', False, (0, 0, 0))
+        if num_predators != self.stored_num_predators:
+            self.predator_text = self.myfont.render(f'Predators: {num_predators}', False, (0, 0, 0))
+            self.stored_num_predators = num_predators
+            
+        if num_prey != self.stored_num_prey:
+            self.prey_text = self.myfont.render(f'Prey: {num_prey}', False, (0, 0, 0))
+            self.stored_num_prey = num_prey
 
         # Calculate positions for text (top right corner)
-        prey_text_pos = self.screen.get_width() - prey_text.get_width() - 10
-        predator_text_pos = self.screen.get_width() - predator_text.get_width() - 10
+        prey_text_pos = self.screen.get_width() - self.prey_text.get_width() - 10
+        predator_text_pos = self.screen.get_width() - self.predator_text.get_width() - 10
 
         # Draw the text surfaces onto the screen
-        self.screen.blit(prey_text, (prey_text_pos, 10))
-        self.screen.blit(predator_text, (predator_text_pos, 40))
+        self.screen.blit(self.prey_text, (prey_text_pos, 10))
+        self.screen.blit(self.predator_text, (predator_text_pos, 40))
 
         pygame.display.flip()
         self.clock.tick(60)  # Control the frame rate
