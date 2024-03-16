@@ -311,7 +311,7 @@ class PreyPredatorEnv(AECEnv):
         self.screen.blit(self.average_predator_energy_text, (predator_energy_text_pos, 130))
 
         pygame.display.flip()
-        self.clock.tick(24)  # Control the frame rate
+        self.clock.tick(60)  # Control the frame rate
 
     def close(self):
         # If your environment opens files or creates network connections, clean them up here
