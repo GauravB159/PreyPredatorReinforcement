@@ -6,7 +6,7 @@ import pygame
 def simple_random_policy(agent):
     return np.random.choice([0, 1, 2, 3, 4])  # Assuming 5 possible actions: stay, up, down, left, right
 
-env = PreyPredatorEnv(num_prey=40, num_predators=10, grid_size=130, max_steps_per_episode=10000, padding = 10)
+env = PreyPredatorEnv(num_prey=20, num_predators=5, grid_size=130, max_steps_per_episode=10000, padding = 10, food_probability=0.001)
 env.pygame_init()
 
 for episode in range(1):  # Run a single episode for testing
