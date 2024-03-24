@@ -93,6 +93,8 @@ class PreyPredatorEnv(AECEnv):
 
                 # Check for other agents (prey and predators)
                 for other_agent, pos in self.agents_positions.items():
+                    if agent == other_agent:
+                        continue
                     if pos == ray_pos:
                         if 'prey' in other_agent:
                             observation[i, 0] = distance  # Distance to prey
@@ -105,10 +107,6 @@ class PreyPredatorEnv(AECEnv):
                 if not found and ray_pos in self.food_positions:
                     observation[i, 2] = distance  # Distance to food
                     break  # Food found, no need to extend the ray further
-
-        # Optionally normalize distances by the maximum detection range
-        observation[observation < no_detection_value] /= max_detection_range
-
         return observation
 
 
@@ -270,13 +268,25 @@ class PreyPredatorEnv(AECEnv):
 
         for food_pos in self.food_positions:
             self.draw_food(food_pos)
-
+            
+        max_detection_range = self.grid_size  # Assuming this is the max detection range used in observe method
         for agent, (x, y) in self.agents_positions.items():
             # Draw agent as a circle
             if 'predator' in agent:
                 self.draw_predator((x, y))
             else:
                 self.draw_prey((x, y))
+            observation = self.observe(agent)
+            directions = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
+
+            agent_center = (x * self.cell_size + self.cell_size // 2, y * self.cell_size + self.cell_size // 2)
+            # Draw rays for detected objects
+            for i, (dx, dy) in enumerate(directions):
+                detection_distance = np.min(observation[i])  # Get the smallest non-default distance in the observation
+                if detection_distance < max_detection_range + 1:  # Check if something was detected
+                    ray_end = (agent_center[0] + dx * detection_distance * self.cell_size,
+                        agent_center[1] + dy * detection_distance * self.cell_size)
+                    pygame.draw.line(self.screen, (0, 0, 0), agent_center, ray_end, 1)  # Draw ray line
 
         num_prey = sum('prey' in agent for agent in self.agents_positions.keys())
         num_predators = sum('predator' in agent for agent in self.agents_positions.keys())
