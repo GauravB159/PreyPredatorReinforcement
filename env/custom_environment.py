@@ -117,8 +117,10 @@ class PreyPredatorEnv(AECEnv):
 
     def step(self, action):
         agent = self.agent_selection
-    
-        if not self.terminations[agent]:  # Proceed only if the agent's episode is not done
+        done = self.terminations[agent]
+        reward = 0
+
+        if not done:  # Proceed only if the agent's episode is not done
             # Apply action and update environment state
             if self.agents_alive[agent] and self.agents_energy[agent] > 0:  # Proceed only if the agent is alive, or has energy
                 if 'prey' in agent  and self.agents_positions.get(self.agent_selection) in self.food_positions:
@@ -183,25 +185,32 @@ class PreyPredatorEnv(AECEnv):
             self.predator_prey_eaten[agent] = 0
         self.agent_selection = self._agent_selector.next()
 
+        # returns
+        return self.observe(agent), reward, done
+
     def get_position(self, agent):
         return self.agents_positions.get(agent, (None, None))
 
     def calculate_reward(self, agent, action):
-        # Example reward structure
         reward = 0
-        
-        # Determine the type of agent
+
         if 'prey' in agent:
-            # Example: Prey receives a positive reward for surviving a step
-            reward += 1
-            # Additional rewards or penalties can be added based on specific actions or outcomes
-            # For example, consuming food could increase the reward
-            # Being caught by a predator could result in a large negative reward
+            if agent in self.agents_positions and self.agents_positions[agent] in self.food_positions:
+                # Prey consumes food, positive reward
+                reward += self.food_energy_gain  # or any specific positive value
+            if not self.agents_alive.get(agent, True):
+                # Prey got eaten, negative reward
+                reward -= 100  # Large negative reward for being eaten
+            else:
+                # Surviving each step gives a small positive reward
+                reward += 1
+
         elif 'predator' in agent:
-            # Example: Predator receives a reward for moving closer to prey or capturing prey
-            reward += 1
-            # Similar to prey, you can add conditions for additional rewards or penalties
-            # For example, capturing prey could give a significant positive reward
+            # Predators get a reward for eating prey
+            prey_eaten = self.predator_prey_eaten.get(agent, 0)
+            reward += prey_eaten * self.energy_gain_from_eating  # Reward based on prey eaten
+            # Surviving or other objectives might also contribute to the reward
+            reward += 1  # small reward for being alive and taking actions
 
         return reward
 
