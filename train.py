@@ -43,7 +43,7 @@ class DQNAgent:
             self.epsilon = 1.0  # exploration rate
         else:
             self.epsilon = 0.0
-        self.epsilon_min = 0.01
+        self.epsilon_min = 0.05
         self.epsilon_decay = 0.98
         self.model = DQN(state_size, action_size)
         self.optimizer = optim.Adam(self.model.parameters())
@@ -106,14 +106,14 @@ def train_dqn(env):
 
     episodes = 1000
     batch_size = 32
-
+    ep_avg = 0
     for e in range(episodes):
         env.reset()
         # Example state initialization; adjust according to your environment's observation space
         prey_state = env.default_observation
         predator_state = env.default_observation
 
-        for time in range(50000):  # Assuming a max number of steps per episode
+        for time in range(10000):  # Assuming a max number of steps per episode
             if env.render_mode == 'human':
                 event = pygame.event.get()
             # The following part needs significant adjustments:
@@ -145,19 +145,21 @@ def train_dqn(env):
             if len(predator_agent.memory) > batch_size:
                 predator_agent.replay(batch_size)
 
-            if done:
+            if env.stored_num_predators + env.stored_num_prey == 0:
                 break
             env.render()
-        if e % 10 == 0:
+        ep_avg += time
+        if (e + 1) % 10 == 0:
             predator_agent.save('predator.pth')
             prey_agent.save('prey.pth')
+            # Example logging
+            print(f"Episode: {e + 1}/{episodes}, Score: {ep_avg / 10}, Prey Epsilon: {prey_agent.epsilon}, Predator Epsilon: {predator_agent.epsilon}")
+            ep_avg = 0
         # Update epsilon for exploration; repeat for predator
         prey_agent.update_epsilon()
         predator_agent.update_epsilon()
 
-        # Example logging
-        print(f"Episode: {e}/{episodes}, Score: {time}, Prey Epsilon: {prey_agent.epsilon}, Predator Epsilon: {predator_agent.epsilon}")
 
 if __name__ == '__main__':
-    env = PreyPredatorEnv(num_prey=5, num_predators=2, grid_size=30, max_steps_per_episode=10000, padding = 10, food_probability=0.05, render_mode="non")
+    env = PreyPredatorEnv(num_prey=10, num_predators=4, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.01, render_mode="human")
     train_dqn(env)
