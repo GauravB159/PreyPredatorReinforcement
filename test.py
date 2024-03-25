@@ -1,25 +1,36 @@
-from env.custom_environment import PreyPredatorEnv
 import numpy as np
-from time import sleep
-import pygame
+from env.custom_environment import PreyPredatorEnv  # Ensure this points to the correct path of your environment
+from train import DQNAgent  # Ensure this imports your DQNAgent class correctly
 
-def simple_random_policy(agent):
-    return np.random.choice([0, 1, 2, 3, 4])  # Assuming 5 possible actions: stay, up, down, left, right
+def test_pettingzoo_env(prey_model_path, predator_model_path, num_episodes=5):
+    # Initialize environment
+    env = PreyPredatorEnv(num_prey=2, num_predators=1, grid_size=30, max_steps_per_episode=10000, padding = 10, food_probability=0.005, render_mode="human")
 
-env = PreyPredatorEnv(num_prey=20, num_predators=5, grid_size=130, max_steps_per_episode=10000, padding = 10, food_probability=0.001)
-env.pygame_init()
+    # Load the trained models for prey and predators
+    # Assuming the state_size and action_size can be inferred or are fixed. Adjust as necessary.
+    state_size = 24  # Update this based on your actual observation space
+    action_size = env.action_space.n  # Assuming this works for your setup
 
-for episode in range(1):  # Run a single episode for testing
-    env.reset()
-    termination = False
-    count = 0
-    while True:
-        event = pygame.event.get()
-        for agent in env.agent_iter(max_iter=env.stored_num_predators + env.stored_num_prey):  # Loop through each agent
-            observation, reward, termination, truncation, info = env.last()  # Get the last state for the agent
-            action = simple_random_policy(agent)  # Decide action based on a simple policy
-            env.step(action)  # Apply action
-        env.render()  # Render the state of the environment
-        count += 1
-        if count > env.max_steps_per_episode:  # You need to define this condition
-            break
+    prey_agent = DQNAgent.load(prey_model_path, mode='test')
+    predator_agent = DQNAgent.load(predator_model_path, mode='test')
+
+    for episode in range(num_episodes):
+        env.reset()
+        for agent in env.agent_iter():
+            observation, _, done, _, _ = env.last()
+            if done:
+                action = None
+            else:
+                if 'prey' in agent:
+                    action = prey_agent.act(np.array(observation))
+                elif 'predator' in agent:
+                    action = predator_agent.act(np.array(observation))
+            env.step(action)
+            env.render()
+
+# Paths to your saved models
+prey_model_path = 'prey.pth'
+predator_model_path = 'predator.pth'
+
+# Run the test
+test_pettingzoo_env(prey_model_path, predator_model_path)
