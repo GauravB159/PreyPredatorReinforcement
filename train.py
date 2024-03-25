@@ -148,6 +148,7 @@ def train_dqn(env):
             if env.stored_num_predators + env.stored_num_prey == 0:
                 break
             env.render()
+            
         ep_avg += time
         if (e + 1) % 10 == 0:
             predator_agent.save('predator.pth')
