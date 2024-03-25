@@ -7,6 +7,7 @@ from collections import deque
 from env.custom_environment import PreyPredatorEnv
 import pygame
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class DQN(nn.Module):
     def __init__(self, state_size = 24, action_size = 5):
         super(DQN, self).__init__()
@@ -37,15 +38,16 @@ class DQNAgent:
     def __init__(self, state_size = 24, action_size = 5, mode = 'train'):
         self.state_size = state_size
         self.action_size = action_size
-        self.memory = ReplayBuffer(10000)
+        self.memory = ReplayBuffer(100000)
         self.gamma = 0.99  # discount rate
         if mode == 'train':
             self.epsilon = 1.0  # exploration rate
         else:
             self.epsilon = 0.0
         self.epsilon_min = 0.05
-        self.epsilon_decay = 0.995
+        self.epsilon_decay = 0.9995
         self.model = DQN(state_size, action_size)
+        self.model = self.model.to(device)
         self.optimizer = optim.Adam(self.model.parameters())
 
     def update_epsilon(self):
@@ -62,7 +64,7 @@ class DQNAgent:
     @classmethod
     def load(cls, file_name, mode = 'train'):
         agent = cls(mode = mode)
-        checkpoint = torch.load(file_name)
+        checkpoint = torch.load(file_name, map_location=device)
         agent.model.load_state_dict(checkpoint['model_state_dict'])
         agent.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         agent.epsilon = checkpoint['epsilon']
@@ -71,9 +73,9 @@ class DQNAgent:
     def act(self, state):
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
-        state = torch.FloatTensor(state).unsqueeze(0)
+        state = torch.FloatTensor(state).unsqueeze(0).to(device)
         action_values = self.model.forward(state)
-        return np.argmax(action_values.detach().numpy())
+        return np.argmax(action_values.cpu().detach().numpy())
 
     def replay(self, batch_size):
         if len(self.memory) < batch_size:
@@ -83,9 +85,9 @@ class DQNAgent:
         for state, action, reward, next_state, done in minibatch:
             target = reward
             if not done:
-                next_state = torch.FloatTensor(next_state).unsqueeze(0)
+                next_state = torch.FloatTensor(next_state).unsqueeze(0).to(device)
                 target = (reward + self.gamma * torch.max(self.model.forward(next_state).detach()).item())
-            state = torch.FloatTensor(state).unsqueeze(0)
+            state = torch.FloatTensor(state).unsqueeze(0).to(device)
             target_f = self.model.forward(state)
             target_f.flatten()[action] = target
             self.optimizer.zero_grad()
@@ -103,9 +105,10 @@ def train_dqn(env):
     # Instantiate two separate agents for prey and predator
     prey_agent = DQNAgent(state_size, action_size)
     predator_agent = DQNAgent(state_size, action_size)
-
-    episodes = 1000
+    f = open("train.log", "a+")
+    episodes = 10000
     batch_size = 32
+    avg_length = 10
     ep_avg = 0
     for e in range(episodes):
         env.reset()
@@ -150,15 +153,17 @@ def train_dqn(env):
             env.render()
             
         ep_avg += time
-        if (e + 1) % 10 == 0:
+        if (e + 1) % avg_length == 0:
             predator_agent.save('predator.pth')
             prey_agent.save('prey.pth')
             # Example logging
-            print(f"Episode: {e + 1}/{episodes}, Score: {ep_avg / 10}, Prey Epsilon: {prey_agent.epsilon}, Predator Epsilon: {predator_agent.epsilon}")
+            f.write(f"Episode: {e + 1}/{episodes}, Score: {ep_avg / avg_length}, Prey Epsilon: {prey_agent.epsilon}, Predator Epsilon: {predator_agent.epsilon}\n")
+            f.flush()
             ep_avg = 0
         # Update epsilon for exploration; repeat for predator
         prey_agent.update_epsilon()
         predator_agent.update_epsilon()
+    f.close()
 
 
 if __name__ == '__main__':
