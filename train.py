@@ -44,7 +44,7 @@ class DQNAgent:
         else:
             self.epsilon = 0.0
         self.epsilon_min = 0.05
-        self.epsilon_decay = 0.98
+        self.epsilon_decay = 0.995
         self.model = DQN(state_size, action_size)
         self.optimizer = optim.Adam(self.model.parameters())
 
@@ -161,5 +161,5 @@ def train_dqn(env):
 
 
 if __name__ == '__main__':
-    env = PreyPredatorEnv(num_prey=10, num_predators=4, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.01, render_mode="human")
+    env = PreyPredatorEnv(num_prey=10, num_predators=4, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.01, render_mode="non")
     train_dqn(env)
