@@ -34,7 +34,7 @@ class ReplayBuffer:
         return len(self.buffer)
 
 class DQNAgent:
-    def __init__(self, state_size = 24, action_size = 5, mode = 'train'):
+    def __init__(self, state_size = 24, action_size = 5, mode = 'train', epsilon = 0.995):
         self.state_size = state_size
         self.action_size = action_size
         self.memory = ReplayBuffer(100000)
@@ -44,7 +44,7 @@ class DQNAgent:
         else:
             self.epsilon = 0.0
         self.epsilon_min = 0.05
-        self.epsilon_decay = 0.9995
+        self.epsilon_decay = epsilon
         self.model = DQN(state_size, action_size)
         self.model = self.model.to(device)
         self.optimizer = optim.Adam(self.model.parameters())
@@ -72,7 +72,7 @@ class DQNAgent:
     def act(self, state):
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
-        state = torch.FloatTensor(state).unsqueeze(0).to(device)
+        state = torch.FloatTensor(np.array(state)).unsqueeze(0).to(device)
         action_values = self.model.forward(state)
         return np.argmax(action_values.cpu().detach().numpy())
 
@@ -84,9 +84,9 @@ class DQNAgent:
         for state, action, reward, next_state, done in minibatch:
             target = reward
             if not done:
-                next_state = torch.FloatTensor(next_state).unsqueeze(0).to(device)
+                next_state = torch.FloatTensor(np.array(next_state)).unsqueeze(0).to(device)
                 target = (reward + self.gamma * torch.max(self.model.forward(next_state).detach()).item())
-            state = torch.FloatTensor(state).unsqueeze(0).to(device)
+            state = torch.FloatTensor(np.array(state)).unsqueeze(0).to(device)
             target_f = self.model.forward(state)
             target_f.flatten()[action] = target
             self.optimizer.zero_grad()
@@ -96,18 +96,16 @@ class DQNAgent:
             self.optimizer.step()
         self.loss = total_loss / len(minibatch)
     
-def train_dqn(env):
+def train_dqn(env, episodes = 1000, epsilon = 0.995, avg_length = 10):
     # Assume the state_size and action_size are the same for both types of agents for simplicity
     state_size = 24  # Update this based on your actual observation space
     action_size = env.action_space.n
 
     # Instantiate two separate agents for prey and predator
-    prey_agent = DQNAgent(state_size, action_size)
-    predator_agent = DQNAgent(state_size, action_size)
+    prey_agent = DQNAgent(state_size, action_size, epsilon = epsilon)
+    predator_agent = DQNAgent(state_size, action_size, epsilon = epsilon)
     f = open("train.log", "a+")
-    episodes = 10000
     batch_size = 32
-    avg_length = 10
     ep_avg = 0
     for e in range(episodes):
         env.reset()
@@ -142,11 +140,14 @@ def train_dqn(env):
             env.render()
             
         ep_avg += time
+        print(f"{e + 1}/{episodes} done!")
         if (e + 1) % avg_length == 0:
             predator_agent.save('predator.pth')
             prey_agent.save('prey.pth')
             # Example logging
             f.write(f"Episode: {e + 1}/{episodes}, Score: {ep_avg / avg_length}, Prey Epsilon: {prey_agent.epsilon}, Predator Epsilon: {predator_agent.epsilon}\n")
+            print("Saving current model")
+            print("")
             f.flush()
             ep_avg = 0
         # Update epsilon for exploration; repeat for predator
@@ -156,5 +157,5 @@ def train_dqn(env):
 
 
 if __name__ == '__main__':
-    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.4, render_mode="human")
-    train_dqn(env)
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.2, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
+    train_dqn(env, epsilon=0.99, episodes=1000, avg_length=10)

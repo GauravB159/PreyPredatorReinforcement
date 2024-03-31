@@ -10,9 +10,10 @@ import random
 class PreyPredatorEnv(AECEnv):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, padding = 10, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5):
+    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, padding = 10, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01):
         super().__init__()
         self.observation_history_length = observation_history_length
+        self.prey_split_probability = prey_split_probability
         self.num_prey = num_prey
         self.render_mode = render_mode
         self.num_predators = num_predators
@@ -36,7 +37,7 @@ class PreyPredatorEnv(AECEnv):
         self.agent_name_mapping = dict(zip(self.agents, list(range(len(self.agents)))))
         self.predator_prey_eaten = {f"predator_{i}": 0 for i in range(num_predators)}
         self.observation_histories = {agent: deque(maxlen=observation_history_length) for agent in self.agents}
-        self.stacked_default_observation = []
+        self.stacked_default_observation = deque(maxlen=observation_history_length)
         initial_obs = self.observe_single()
         for _ in range(self.observation_history_length):
             self.stacked_default_observation.append(initial_obs)
@@ -76,8 +77,8 @@ class PreyPredatorEnv(AECEnv):
         
         # Set the initial position
         if position is None:
-            x = ((2 * self.grid_size // 3) + np.random.randint(self.grid_size // 3)) if agent_type == "predator"  else (np.random.randint(self.grid_size))
-            y = (2 * self.grid_size // 3) * int(agent_type == "prey") + np.random.randint(self.grid_size // 3)
+            x = ((self.grid_size // 2) + np.random.randint(self.grid_size // 2)) if agent_type == "predator"  else (np.random.randint(self.grid_size))
+            y = (self.grid_size // 2) * int(agent_type == "prey") + np.random.randint(self.grid_size // 2)
             position = (x, y)
         self.agents_positions[new_id] = position
         self.agents_energy[new_id] = self.initial_energy
@@ -138,7 +139,7 @@ class PreyPredatorEnv(AECEnv):
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
         self.stored_num_predators = self.num_predators
         self.stored_num_prey = self.num_prey
-        self.agents_positions = {agent: (((2 * self.grid_size // 3) + np.random.randint(self.grid_size // 3)) if "predator" in agent else (np.random.randint(self.grid_size)), (2 * self.grid_size // 3) * int("prey" in agent) + np.random.randint(self.grid_size // 3)) for agent in self.agents}
+        self.agents_positions = {agent: (((self.grid_size // 2) + np.random.randint(self.grid_size // 2)) if "predator" in agent else (np.random.randint(self.grid_size)), (self.grid_size // 2) * int("prey" in agent) + np.random.randint(self.grid_size // 2)) for agent in self.agents}
         self.agents_energy = {agent: self.initial_energy for agent in self.agents}
         self.agents_alive = {agent: True for agent in self.agents}  # Track whether agents are alive
 
@@ -161,7 +162,7 @@ class PreyPredatorEnv(AECEnv):
     def generate_food(self):
         if random.random() < self.food_probability:
             # Add food at random positions, ensuring no duplicates
-            new_food_pos = (np.random.randint(self.grid_size // 3), np.random.randint(self.grid_size // 3))
+            new_food_pos = (np.random.randint(self.grid_size // 2), np.random.randint(self.grid_size // 2))
             if new_food_pos not in self.food_positions and new_food_pos not in self.agents_positions.values():
                 self.food_positions.append(new_food_pos)
 
@@ -229,7 +230,7 @@ class PreyPredatorEnv(AECEnv):
                 self.terminations[agent] = True  # Mark done as well when truncating
 
         # Proceed to next agent
-        if 'prey' in agent and np.random.rand() < 0.01 and self.agents_energy[agent] > 70:  # 10% chance for prey to split
+        if 'prey' in agent and np.random.rand() < self.prey_split_probability and self.agents_energy[agent] > 70:  # 10% chance for prey to split
             self.add_agent("prey")
         elif 'predator' in agent and self.predator_prey_eaten[agent] >= 5:  # Predator splits after eating 5 prey
             self.add_agent("predator")
@@ -312,7 +313,7 @@ class PreyPredatorEnv(AECEnv):
             observation = self.observe_single(agent)
             directions = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
 
-            agent_center = (x * self.cell_size + self.cell_size // 3, y * self.cell_size + self.cell_size // 3)
+            agent_center = (x * self.cell_size + self.cell_size // 2, y * self.cell_size + self.cell_size // 2)
             # Draw rays for detected objects
             for i, (dx, dy) in enumerate(directions):
                 detection_distance = np.min(observation[i])  # Get the smallest non-default distance in the observation

@@ -5,7 +5,7 @@ import pygame
 
 def test_pettingzoo_env(prey_model_path, predator_model_path, num_episodes=5):
     # Initialize environment
-    env = PreyPredatorEnv(num_prey=10, num_predators=4, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.01, render_mode="human")
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.2, render_mode="human", prey_split_probability=0, observation_history_length=5, food_energy_gain = 40)
 
     prey_agent = DQNAgent.load(prey_model_path, mode='test')
     predator_agent = DQNAgent.load(predator_model_path, mode='test')
