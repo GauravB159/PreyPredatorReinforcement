@@ -9,15 +9,21 @@ import pygame
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class DQN(nn.Module):
-    def __init__(self, state_size=24, action_size=5, history_length=5):
+    def __init__(self, input_shape, action_size):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(state_size * history_length, 64)  # Adjust input size
+        self.conv1 = nn.Conv2d(in_channels=input_shape[0], out_channels=32, kernel_size=3, stride=1, padding=1)
         self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(64, action_size)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.fc1 = nn.Linear(64 * input_shape[1] * input_shape[2], 128)  # Adjust for output size of conv2
+        self.fc2 = nn.Linear(128, action_size)
     
     def forward(self, x):
+        x = self.relu(self.conv1(x))
+        x = self.relu(self.conv2(x))
+        x = x.view(x.size(0), -1)  # Flatten
         x = self.relu(self.fc1(x))
         return self.fc2(x)
+
     
 class ReplayBuffer:
     def __init__(self, capacity):
@@ -44,7 +50,7 @@ class DQNAgent:
             self.epsilon = 0.0
         self.epsilon_min = 0.05
         self.epsilon_decay = epsilon
-        self.model = DQN(state_size, action_size, history_length=history_length)
+        self.model = DQN(state_size, action_size)
         self.model = self.model.to(device)
         self.optimizer = optim.Adam(self.model.parameters())
 
@@ -71,8 +77,8 @@ class DQNAgent:
     def act(self, state):
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
-        state = torch.FloatTensor(np.array(state)).unsqueeze(0).to(device)
-        action_values = self.model.forward(state)
+        state = torch.FloatTensor(state).unsqueeze(0).to(device)  # Add batch dimension
+        action_values = self.model(state)
         return np.argmax(action_values.cpu().detach().numpy())
 
     def replay(self, batch_size):
@@ -106,19 +112,22 @@ class DQNAgent:
     
 def train_dqn(env, episodes = 1000, epsilon = 0.995, avg_length = 10):
     # Assume the state_size and action_size are the same for both types of agents for simplicity
-    state_size = 24  # Update this based on your actual observation space
+    input_shape = (3, env.grid_size, env.grid_size)  # Assuming 3 channels for prey, predators, and food
     action_size = env.action_space.n
 
+    prey_agent = DQNAgent(input_shape, action_size, epsilon=epsilon)
+    predator_agent = DQNAgent(input_shape, action_size, epsilon=epsilon)
+
     # Instantiate two separate agents for prey and predator
-    prey_agent = DQNAgent(state_size, action_size, epsilon = epsilon, history_length=env.observation_history_length)
-    predator_agent = DQNAgent(state_size, action_size, epsilon = epsilon, history_length=env.observation_history_length)
+    prey_agent = DQNAgent(input_shape, action_size, epsilon = epsilon, history_length=env.observation_history_length)
+    predator_agent = DQNAgent(input_shape, action_size, epsilon = epsilon, history_length=env.observation_history_length)
     f = open("train.log", "a+")
     batch_size = 32
     ep_avg = 0
     for e in range(episodes):
         env.reset()
         # Example state initialization; adjust according to your environment's observation space
-        prey_state = env.stacked_flattened_default_observation
+        prey_state = env.initial_obs
 
         for time in range(10000):  # Assuming a max number of steps per episode
             if env.render_mode == 'human':
@@ -162,5 +171,5 @@ def train_dqn(env, episodes = 1000, epsilon = 0.995, avg_length = 10):
 
 
 if __name__ == '__main__':
-    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.1, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.2, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
     train_dqn(env, epsilon=0.9999, episodes=1000, avg_length=10)

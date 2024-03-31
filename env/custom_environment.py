@@ -38,9 +38,10 @@ class PreyPredatorEnv(AECEnv):
         self.predator_prey_eaten = {f"predator_{i}": 0 for i in range(num_predators)}
         self.observation_histories = {agent: deque(maxlen=observation_history_length) for agent in self.agents}
         self.stacked_default_observation = deque(maxlen=observation_history_length)
-        initial_obs = self.observe_single()
+        self.reset()
+        self.initial_obs = self.observe()
         for _ in range(self.observation_history_length):
-            self.stacked_default_observation.append(initial_obs)
+            self.stacked_default_observation.append(self.initial_obs)
         self.stacked_flattened_default_observation = np.stack(self.stacked_default_observation, axis=0).flatten()
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
@@ -48,14 +49,11 @@ class PreyPredatorEnv(AECEnv):
         self.food_probability = food_probability
         self.food_energy_gain = food_energy_gain
         self.food_positions = []
-
-        # Initialize state variables
-        self.reset()
     
 
-    def observe(self, agent):
+    def observe_old(self, agent):
         # Assuming the base observe method returns a numpy array
-        current_observation = self.observe_single(agent)
+        current_observation = self.observe(agent)
         self.observation_histories[agent].append(current_observation)
         # Concatenate observations along a new dimension to maintain the order
         extended_observation = np.stack(self.observation_histories[agent], axis=0)
@@ -91,46 +89,25 @@ class PreyPredatorEnv(AECEnv):
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
         
-    def observe_single(self, agent = None):
-        """
-        Creates an observation tensor with distances to the nearest prey, predator, and food
-        in 8 directions around the agent. Each ray stops at the first object encountered.
-        """
-        observation = self.default_observation.copy()        
-        if not agent or self.terminations[agent]:
-            return observation  # If agent is done, return no detection for all
+    def observe(self, agent=None):
+        # Initialize an empty grid
+        observation = np.zeros((3, self.grid_size, self.grid_size), dtype=int)
 
-        directions = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]  # 8 directional vectors
-        agent_pos = self.agents_positions[agent]
+        # Fill in the grid with positions of prey, predators, and food
+        for other_agent in self.agents:
+            if self.terminations[other_agent]:
+                continue
+            x, y = self.agents_positions[other_agent]
+            if 'prey' in other_agent:
+                observation[0, x, y] = 1  # Mark as prey
+            elif 'predator' in other_agent:
+                observation[1, x, y] = 1  # Mark as predator
 
-        # Iterate over each direction
-        for i, (dx, dy) in enumerate(directions):
-            for distance in range(1, self.max_detection_range + 1):
-                ray_pos = (agent_pos[0] + dx * distance, agent_pos[1] + dy * distance)
+        for food_pos in self.food_positions:
+            observation[2, food_pos[0], food_pos[1]] = 1  # Mark as food
 
-                # Check bounds
-                if ray_pos[0] < 0 or ray_pos[0] >= self.grid_size or ray_pos[1] < 0 or ray_pos[1] >= self.grid_size:
-                    break  # Stop if the ray goes out of bounds
-
-                found = False  # Flag to indicate if an object has been detected
-
-                # Check for other agents (prey and predators)
-                for other_agent, pos in self.agents_positions.items():
-                    if agent == other_agent:
-                        continue
-                    if pos == ray_pos:
-                        if 'prey' in other_agent:
-                            observation[i, 0] = distance  # Distance to prey
-                        elif 'predator' in other_agent:
-                            observation[i, 1] = distance  # Distance to predator
-                        found = True  # Mark that an object has been found
-                        break  # Stop extending this ray
-
-                # Check for food, only if no agent was found in this direction
-                if not found and ray_pos in self.food_positions:
-                    observation[i, 2] = distance  # Distance to food
-                    break  # Food found, no need to extend the ray further
         return observation
+
 
 
     def reset(self):
@@ -241,7 +218,7 @@ class PreyPredatorEnv(AECEnv):
         self.stored_num_predators = num_predators
         self.stored_num_prey = num_prey
         # returns
-        return self.observe(agent), reward, done
+        return self.observe(), reward, done
 
     def get_position(self, agent):
         return self.agents_positions.get(agent, (None, None))
@@ -315,17 +292,17 @@ class PreyPredatorEnv(AECEnv):
                 self.draw_predator((x, y))
             else:
                 self.draw_prey((x, y))
-            observation = self.observe_single(agent)
-            directions = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
+            # observation = self.observe(agent)
+            # directions = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
 
-            agent_center = (x * self.cell_size + self.cell_size // 2, y * self.cell_size + self.cell_size // 2)
-            # Draw rays for detected objects
-            for i, (dx, dy) in enumerate(directions):
-                detection_distance = np.min(observation[i])  # Get the smallest non-default distance in the observation
-                if detection_distance < max_detection_range + 1:  # Check if something was detected
-                    ray_end = (agent_center[0] + dx * detection_distance * self.cell_size,
-                        agent_center[1] + dy * detection_distance * self.cell_size)
-                    pygame.draw.line(self.screen, (0, 0, 0), agent_center, ray_end, 1)  # Draw ray line
+            # agent_center = (x * self.cell_size + self.cell_size // 2, y * self.cell_size + self.cell_size // 2)
+            # # Draw rays for detected objects
+            # for i, (dx, dy) in enumerate(directions):
+            #     detection_distance = np.min(observation[i])  # Get the smallest non-default distance in the observation
+            #     if detection_distance < max_detection_range + 1:  # Check if something was detected
+            #         ray_end = (agent_center[0] + dx * detection_distance * self.cell_size,
+            #             agent_center[1] + dy * detection_distance * self.cell_size)
+            #         pygame.draw.line(self.screen, (0, 0, 0), agent_center, ray_end, 1)  # Draw ray line
         
         # Render text surfaces
         self.predator_text = self.myfont.render(f'Predators: {self.stored_num_predators}', True, (0, 0, 0))            
