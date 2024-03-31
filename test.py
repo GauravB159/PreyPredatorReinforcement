@@ -5,10 +5,10 @@ import pygame
 
 def test_pettingzoo_env(prey_model_path, predator_model_path, num_episodes=5):
     # Initialize environment
-    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.1, render_mode="human", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.2, render_mode="human", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
 
-    prey_agent = DQNAgent.load(prey_model_path, mode='test', history_length=env.observation_history_length)
-    predator_agent = DQNAgent.load(predator_model_path, mode='test', history_length=env.observation_history_length)
+    prey_agent = DQNAgent.load(prey_model_path, mode='test', env=env)
+    predator_agent = DQNAgent.load(predator_model_path, mode='test', env=env)
 
     for episode in range(num_episodes):
         env.reset()

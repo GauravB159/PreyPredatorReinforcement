@@ -39,8 +39,8 @@ class ReplayBuffer:
         return len(self.buffer)
 
 class DQNAgent:
-    def __init__(self, state_size = 24, action_size = 5, mode = 'train', epsilon = 0.995, history_length = 5):
-        self.state_size = state_size
+    def __init__(self, input_shape = 24, action_size = 5, mode = 'train', epsilon = 0.995, history_length = 5):
+        self.input_shape = input_shape
         self.action_size = action_size
         self.memory = ReplayBuffer(100000)
         self.gamma = 0.99  # discount rate
@@ -50,7 +50,7 @@ class DQNAgent:
             self.epsilon = 0.0
         self.epsilon_min = 0.05
         self.epsilon_decay = epsilon
-        self.model = DQN(state_size, action_size)
+        self.model = DQN(input_shape, action_size)
         self.model = self.model.to(device)
         self.optimizer = optim.Adam(self.model.parameters())
 
@@ -66,8 +66,9 @@ class DQNAgent:
         }, file_name)
 
     @classmethod
-    def load(cls, file_name, mode = 'train', history_length = 5):
-        agent = cls(mode = mode, history_length = history_length)
+    def load(cls, file_name, mode = 'train', env = None):
+        input_shape = (3, env.grid_size, env.grid_size)
+        agent = cls(input_shape = input_shape, mode = mode, history_length = env.observation_history_length)
         checkpoint = torch.load(file_name, map_location=device)
         agent.model.load_state_dict(checkpoint['model_state_dict'])
         agent.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
