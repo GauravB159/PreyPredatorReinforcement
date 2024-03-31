@@ -3,14 +3,16 @@ from pettingzoo.utils import agent_selector
 import numpy as np
 from gym import spaces
 import pygame
+from collections import deque
 import sys
 import random
 
 class PreyPredatorEnv(AECEnv):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, padding = 10, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human'):
+    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, padding = 10, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5):
         super().__init__()
+        self.observation_history_length = observation_history_length
         self.num_prey = num_prey
         self.render_mode = render_mode
         self.num_predators = num_predators
@@ -33,7 +35,11 @@ class PreyPredatorEnv(AECEnv):
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
         self.agent_name_mapping = dict(zip(self.agents, list(range(len(self.agents)))))
         self.predator_prey_eaten = {f"predator_{i}": 0 for i in range(num_predators)}
-        
+        self.observation_histories = {agent: deque(maxlen=observation_history_length) for agent in self.agents}
+        self.stacked_default_observation = []
+        initial_obs = self.observe_single()
+        for _ in range(self.observation_history_length):
+            self.stacked_default_observation.append(initial_obs)
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
         
@@ -43,6 +49,18 @@ class PreyPredatorEnv(AECEnv):
 
         # Initialize state variables
         self.reset()
+    
+
+    def observe(self, agent):
+        # Assuming the base observe method returns a numpy array
+        current_observation = self.observe_single(agent)
+        if agent not in self.observation_histories:
+            print(self.observation_histories)
+        self.observation_histories[agent].append(current_observation)
+        # Concatenate observations along a new dimension to maintain the order
+        extended_observation = np.stack(self.observation_histories[agent], axis=0)
+        return extended_observation.flatten()  # Flatten if your model expects flat vectors
+
         
     def add_agent(self, agent_type, position=None):
         """
@@ -66,20 +84,20 @@ class PreyPredatorEnv(AECEnv):
         self.agents_alive[new_id] = True
         self.terminations[new_id] = False
         self.truncations[new_id] = False
+        self.observation_histories[new_id] = self.stacked_default_observation
         self.infos[new_id] = {}
         self._cumulative_rewards[new_id] = 0
         self.agent_name_mapping = dict(zip(self.agents, list(range(len(self.agents)))))
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
         
-    def observe(self, agent):
+    def observe_single(self, agent = None):
         """
         Creates an observation tensor with distances to the nearest prey, predator, and food
         in 8 directions around the agent. Each ray stops at the first object encountered.
         """
-        
-        observation = self.default_observation.copy()
-        if self.terminations[agent]:
+        observation = self.default_observation.copy()        
+        if not agent or self.terminations[agent]:
             return observation  # If agent is done, return no detection for all
 
         directions = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]  # 8 directional vectors
@@ -134,6 +152,9 @@ class PreyPredatorEnv(AECEnv):
         # Reset agent selector for turn-based action selection
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
+        self.observation_histories = {agent: deque(maxlen=self.observation_history_length) for agent in self.agents}
+        for agent in self.agents:
+            self.observation_histories[agent] = self.stacked_default_observation
         if self.render_mode == 'human':
             self.pygame_init()
 
@@ -168,7 +189,7 @@ class PreyPredatorEnv(AECEnv):
                 elif action == 4:  # Move right
                     self.agents_positions[agent] = (self.agents_positions[agent][0], min(self.agents_positions[agent][1] + 1, self.grid_size - self.padding))
                 # Example energy consumption for moving
-                self.agents_energy[agent] -= 10 # Deduct energy for taking a step
+                self.agents_energy[agent] -= 1 # Deduct energy for taking a step
                 
                 # Example interaction: Predation or eating
                 # You'll need to implement logic to check for such interactions based on positions and agent types
@@ -288,7 +309,7 @@ class PreyPredatorEnv(AECEnv):
                 self.draw_predator((x, y))
             else:
                 self.draw_prey((x, y))
-            observation = self.observe(agent)
+            observation = self.observe_single(agent)
             directions = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
 
             agent_center = (x * self.cell_size + self.cell_size // 3, y * self.cell_size + self.cell_size // 3)
@@ -306,25 +327,28 @@ class PreyPredatorEnv(AECEnv):
         self.food_text = self.myfont.render(f'Food: {len(self.food_positions)}', True, (0, 0, 0))
         prey_energy = [self.agents_energy[k] for k in self.agents_energy if "prey" in k]
         predator_energy = [self.agents_energy[k] for k in self.agents_energy if "predator" in k]
-        self.average_prey_energy_text = self.myfont.render(f'Prey Energy: {sum(prey_energy) / len(prey_energy):.2f}', True, (0, 0, 0))
-        self.average_predator_energy_text = self.myfont.render(f'Predator Energy: {sum(predator_energy) / len(predator_energy):.2f}', True, (0, 0, 0))
-        
-        # Calculate positions for text (top right corner)
-        prey_text_pos = self.screen.get_width() - self.prey_text.get_width() - 10
-        predator_text_pos = self.screen.get_width() - self.predator_text.get_width() - 10
-        food_text_pos = self.screen.get_width() - self.food_text.get_width() - 10
-        prey_energy_text_pos = self.screen.get_width() - self.average_prey_energy_text.get_width() - 10
-        predator_energy_text_pos = self.screen.get_width() - self.average_predator_energy_text.get_width() - 10
+        if self.num_prey > 0:
+            self.average_prey_energy_text = self.myfont.render(f'Prey Energy: {sum(prey_energy) / len(prey_energy):.2f}', True, (0, 0, 0))
+            prey_text_pos = self.screen.get_width() - self.prey_text.get_width() - 10
+            prey_energy_text_pos = self.screen.get_width() - self.average_prey_energy_text.get_width() - 10
+            self.draw_prey(((prey_text_pos - 20) / self.cell_size, 15 / self.cell_size))
+            self.screen.blit(self.prey_text, (prey_text_pos, 10))
+            self.screen.blit(self.average_prey_energy_text, (prey_energy_text_pos, 100))
+            
+        if self.num_predators > 0:
+            self.average_predator_energy_text = self.myfont.render(f'Predator Energy: {sum(predator_energy) / len(predator_energy):.2f}', True, (0, 0, 0))
+            predator_energy_text_pos = self.screen.get_width() - self.average_predator_energy_text.get_width() - 10
+            predator_text_pos = self.screen.get_width() - self.predator_text.get_width() - 10
+            self.draw_predator(((predator_text_pos - 20) / self.cell_size, 48 / self.cell_size))
+            self.screen.blit(self.predator_text, (predator_text_pos, 40))
+            self.screen.blit(self.average_predator_energy_text, (predator_energy_text_pos, 130))
 
-        # Draw the text surfaces onto the screen
-        self.draw_prey(((prey_text_pos - 20) / self.cell_size, 15 / self.cell_size))
-        self.screen.blit(self.prey_text, (prey_text_pos, 10))
-        self.draw_predator(((predator_text_pos - 20) / self.cell_size, 48 / self.cell_size))
-        self.screen.blit(self.predator_text, (predator_text_pos, 40))
-        self.draw_food(((food_text_pos - 20) / self.cell_size, 75 / self.cell_size))
-        self.screen.blit(self.food_text, (food_text_pos, 70))
-        self.screen.blit(self.average_prey_energy_text, (prey_energy_text_pos, 100))
-        self.screen.blit(self.average_predator_energy_text, (predator_energy_text_pos, 130))
+        if self.food_probability > 0:
+            # Calculate positions for text (top right corner)
+            food_text_pos = self.screen.get_width() - self.food_text.get_width() - 10
+            # Draw the text surfaces onto the screen
+            self.draw_food(((food_text_pos - 20) / self.cell_size, 75 / self.cell_size))
+            self.screen.blit(self.food_text, (food_text_pos, 70))
 
         pygame.display.flip()
         self.clock.tick(60)  # Control the frame rate

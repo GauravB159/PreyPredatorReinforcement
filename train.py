@@ -9,15 +9,14 @@ import pygame
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class DQN(nn.Module):
-    def __init__(self, state_size = 24, action_size = 5):
+    def __init__(self, state_size=24, action_size=5, history_length=5):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(state_size, 64)  # Adjust these layers as needed
+        self.fc1 = nn.Linear(state_size * history_length, 64)  # Adjust input size
         self.relu = nn.ReLU()
         self.fc2 = nn.Linear(64, action_size)
-        self.state_size = state_size
-
+    
     def forward(self, x):
-        x = x.reshape((1, self.state_size))
+        x = x.reshape((-1, self.fc1.in_features))  # Ensure input is correctly reshaped
         x = self.relu(self.fc1(x))
         return self.fc2(x)
     
@@ -113,8 +112,7 @@ def train_dqn(env):
     for e in range(episodes):
         env.reset()
         # Example state initialization; adjust according to your environment's observation space
-        prey_state = env.default_observation
-        predator_state = env.default_observation
+        prey_state = env.stacked_default_observation
 
         for time in range(10000):  # Assuming a max number of steps per episode
             if env.render_mode == 'human':
@@ -127,11 +125,9 @@ def train_dqn(env):
 
             # Simplified action selection for both agents (you need logic to distinguish between agent types)
             prey_action = prey_agent.act(prey_state)
-            predator_action = predator_agent.act(predator_state)
 
             # Your environment needs to handle multi-agent steps (this is highly simplified)
             next_prey_state, prey_reward, done = env.step(prey_action)  # Adjust this method
-            next_predator_state, predator_reward, done = env.step(predator_action)  # Adjust
 
             # Example: Push to memory and update state; repeat for predator
             prey_agent.memory.push(prey_state, prey_action, prey_reward, next_prey_state, done)
@@ -140,15 +136,8 @@ def train_dqn(env):
             # Example: Perform replay if enough memories are collected; repeat for predator
             if len(prey_agent.memory) > batch_size:
                 prey_agent.replay(batch_size)
-            
-            predator_agent.memory.push(predator_state, predator_action, predator_reward, next_predator_state, done)
-            predator_state = next_predator_state
-
-            # Example: Perform replay if enough memories are collected; repeat for predator
-            if len(predator_agent.memory) > batch_size:
-                predator_agent.replay(batch_size)
-
-            if env.stored_num_predators + env.stored_num_prey == 0:
+                
+            if env.stored_num_prey == 0:
                 break
             env.render()
             
@@ -167,5 +156,5 @@ def train_dqn(env):
 
 
 if __name__ == '__main__':
-    env = PreyPredatorEnv(num_prey=10, num_predators=4, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.01, render_mode="non")
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.4, render_mode="human")
     train_dqn(env)
