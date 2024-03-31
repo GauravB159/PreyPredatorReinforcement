@@ -31,8 +31,8 @@ class PreyPredatorEnv(AECEnv):
         self.energy_gain_from_eating = 100
         # Define action and observation space
         self.action_space = spaces.Discrete(5) # Example: 0 = stay, 1-4 = move in directions
-        self.observation_space = spaces.Box(low=0, high=1, shape=(grid_size, grid_size, 3), dtype=np.float32)
-        
+        # self.observation_space = spaces.Box(low=0, high=self.no_detection_value, shape=(self.observation_history_length, 8, 3), dtype=int)
+        self.observation_space = spaces.Box(low=0, high=1, shape=(3, self.grid_size, self.grid_size), dtype=int)
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
         self.agent_name_mapping = dict(zip(self.agents, list(range(len(self.agents)))))
         self.predator_prey_eaten = {f"predator_{i}": 0 for i in range(num_predators)}
@@ -41,6 +41,7 @@ class PreyPredatorEnv(AECEnv):
         initial_obs = self.observe_single()
         for _ in range(self.observation_history_length):
             self.stacked_default_observation.append(initial_obs)
+        self.stacked_flattened_default_observation = np.stack(self.stacked_default_observation, axis=0).flatten()
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
         
@@ -55,8 +56,6 @@ class PreyPredatorEnv(AECEnv):
     def observe(self, agent):
         # Assuming the base observe method returns a numpy array
         current_observation = self.observe_single(agent)
-        if agent not in self.observation_histories:
-            print(self.observation_histories)
         self.observation_histories[agent].append(current_observation)
         # Concatenate observations along a new dimension to maintain the order
         extended_observation = np.stack(self.observation_histories[agent], axis=0)
@@ -248,12 +247,18 @@ class PreyPredatorEnv(AECEnv):
         return self.agents_positions.get(agent, (None, None))
 
     def calculate_reward(self, agent, action):
-        reward = 0
-        if self.agents_alive[agent]:  # Check if the agent is still alive
-            reward += 1  # Reward for being alive
-        else:
-            reward -= 10  # Penalize death significantly to encourage survival
+        reward = 1  # Survival reward for taking a step.
+        current_energy = self.agents_energy[agent]
+        # Penalty if energy is critically low, encouraging finding food/prey.
+        if current_energy < 20:
+            reward -= 0.5
+
+        # Significant penalty for death to emphasize survival.
+        if not self.agents_alive[agent]:
+            reward -= 10
+
         return reward
+
 
     def pygame_init(self):
         pygame.init()
