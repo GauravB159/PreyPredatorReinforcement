@@ -42,7 +42,7 @@ class DQNAgent:
     def __init__(self, input_shape = 24, action_size = 5, mode = 'train', epsilon = 0.995, history_length = 5):
         self.input_shape = input_shape
         self.action_size = action_size
-        self.memory = ReplayBuffer(100000)
+        self.memory = ReplayBuffer(1000000)
         self.gamma = 0.99  # discount rate
         if mode == 'train':
             self.epsilon = 1.0  # exploration rate
@@ -50,13 +50,18 @@ class DQNAgent:
             self.epsilon = 0.0
         self.epsilon_min = 0.05
         self.epsilon_decay = epsilon
-        self.model = DQN(input_shape, action_size)
-        self.model = self.model.to(device)
+        self.model = DQN(input_shape, action_size).to(device)
+        self.target_model = DQN(input_shape, action_size).to(device)
         self.optimizer = optim.Adam(self.model.parameters())
+        self.update_target_model() 
 
     def update_epsilon(self):
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
+    
+    def update_target_model(self):
+        """Update the target model to match the current model."""
+        self.target_model.load_state_dict(self.model.state_dict())
     
     def save(self, file_name):
         torch.save({
@@ -97,7 +102,7 @@ class DQNAgent:
         current_q_values = self.model(states).gather(1, actions)
 
         # Compute Q values for next states
-        next_q_values = self.model(next_states).detach().max(1)[0]
+        next_q_values = self.target_model(next_states).detach().max(1)[0]
         # Compute the target of the current Q values
         target_q_values = (rewards + (self.gamma * next_q_values * (1 - dones))).unsqueeze(1)
 
@@ -111,17 +116,16 @@ class DQNAgent:
         # Update epsilon
         self.update_epsilon()
     
-def train_dqn(env, episodes = 1000, epsilon = 0.995, avg_length = 10):
+def train_dqn(env, episodes = 1000, epsilon = 0.995, avg_length = 10, target_update_freq = 100, load_saved = False):
     # Assume the state_size and action_size are the same for both types of agents for simplicity
     input_shape = (3, env.grid_size, env.grid_size)  # Assuming 3 channels for prey, predators, and food
     action_size = env.action_space.n
-
-    prey_agent = DQNAgent(input_shape, action_size, epsilon=epsilon)
-    predator_agent = DQNAgent(input_shape, action_size, epsilon=epsilon)
-
-    # Instantiate two separate agents for prey and predator
-    prey_agent = DQNAgent(input_shape, action_size, epsilon = epsilon, history_length=env.observation_history_length)
-    predator_agent = DQNAgent(input_shape, action_size, epsilon = epsilon, history_length=env.observation_history_length)
+    if load_saved:
+        prey_agent = DQNAgent.load("prey.pth", env = env)
+        predator_agent = DQNAgent.load("predator.pth", env = env)
+    else:
+        prey_agent = DQNAgent(input_shape, action_size, epsilon = epsilon, history_length=env.observation_history_length)
+        predator_agent = DQNAgent(input_shape, action_size, epsilon = epsilon, history_length=env.observation_history_length)
     f = open("train.log", "a+")
     batch_size = 32
     ep_avg = 0
@@ -129,6 +133,9 @@ def train_dqn(env, episodes = 1000, epsilon = 0.995, avg_length = 10):
         env.reset()
         # Example state initialization; adjust according to your environment's observation space
         prey_state = env.initial_obs
+        if e % target_update_freq == 0:
+            prey_agent.update_target_model()
+            predator_agent.update_target_model()
 
         for time in range(10000):  # Assuming a max number of steps per episode
             if env.render_mode == 'human':
@@ -157,7 +164,7 @@ def train_dqn(env, episodes = 1000, epsilon = 0.995, avg_length = 10):
                 break
             env.render()
             
-        ep_avg += time
+        ep_avg += env.get_average_rewards()
         print(f"{e + 1}/{episodes} done!")
         if (e + 1) % avg_length == 0:
             predator_agent.save('predator.pth')
@@ -173,4 +180,4 @@ def train_dqn(env, episodes = 1000, epsilon = 0.995, avg_length = 10):
 
 if __name__ == '__main__':
     env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.2, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
-    train_dqn(env, epsilon=0.9999, episodes=1000, avg_length=10)
+    train_dqn(env, epsilon=1 - 5e-6, episodes=10000, avg_length=100)

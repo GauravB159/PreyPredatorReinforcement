@@ -84,10 +84,14 @@ class PreyPredatorEnv(AECEnv):
         self.truncations[new_id] = False
         self.observation_histories[new_id] = self.stacked_default_observation
         self.infos[new_id] = {}
-        self._cumulative_rewards[new_id] = 0
+        self._cumulative_rewards[new_id] = -100
         self.agent_name_mapping = dict(zip(self.agents, list(range(len(self.agents)))))
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
+        
+    def get_average_rewards(self):
+        values = self._cumulative_rewards.values()
+        return sum(values) / len(values)
         
     def observe(self, agent=None):
         # Initialize an empty grid
@@ -119,7 +123,7 @@ class PreyPredatorEnv(AECEnv):
         self.agents_energy = {agent: self.initial_energy for agent in self.agents}
         self.agents_alive = {agent: True for agent in self.agents}  # Track whether agents are alive
 
-        self._cumulative_rewards = {agent: 0 for agent in self.agents}
+        self._cumulative_rewards = {agent: -100 for agent in self.agents}
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {} for agent in self.agents}

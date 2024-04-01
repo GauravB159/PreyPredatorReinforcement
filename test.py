@@ -28,6 +28,7 @@ def test_pettingzoo_env(prey_model_path, predator_model_path, num_episodes=5):
                         action = predator_agent.act(np.array(observation))
                 env.step(action)
             if env.stored_num_predators + env.stored_num_prey == 0:
+                print(env._cumulative_rewards)
                 break
             env.render()
             count += 1
