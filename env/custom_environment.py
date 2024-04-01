@@ -74,8 +74,8 @@ class PreyPredatorEnv(AECEnv):
         
         # Set the initial position
         if position is None:
-            x = np.random.randint(self.grid_size)
-            y = np.random.randint(self.grid_size)
+            x = ((self.grid_size // 2) + np.random.randint(self.grid_size // 2)) if agent_type == "predator"  else (np.random.randint(self.grid_size))
+            y = (self.grid_size // 2) * int(agent_type == "prey") + np.random.randint(self.grid_size // 2)
             position = (x, y)
         self.agents_positions[new_id] = position
         self.agents_energy[new_id] = self.initial_energy
@@ -121,7 +121,7 @@ class PreyPredatorEnv(AECEnv):
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
         self.stored_num_predators = self.num_predators
         self.stored_num_prey = self.num_prey
-        self.agents_positions = {agent: (np.random.randint(self.grid_size), np.random.randint(self.grid_size)) for agent in self.agents}
+        self.agents_positions = self.agents_positions = {agent: (((self.grid_size // 2) + np.random.randint(self.grid_size // 2)) if "predator" in agent else (np.random.randint(self.grid_size)), (self.grid_size // 2) * int("prey" in agent) + np.random.randint(self.grid_size // 2)) for agent in self.agents}
         self.agents_energy = {agent: self.initial_energy for agent in self.agents}
         self.agents_alive = {agent: True for agent in self.agents}  # Track whether agents are alive
 
@@ -144,7 +144,7 @@ class PreyPredatorEnv(AECEnv):
     def generate_food(self):
         if random.random() < self.food_probability:
             # Add food at random positions, ensuring no duplicates
-            new_food_pos = (np.random.randint(self.grid_size), np.random.randint(self.grid_size))
+            new_food_pos = (np.random.randint(self.grid_size // 2), np.random.randint(self.grid_size // 2))
             if new_food_pos not in self.food_positions and new_food_pos not in self.agents_positions.values():
                 self.food_positions.append(new_food_pos)
 
