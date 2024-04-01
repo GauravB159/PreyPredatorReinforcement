@@ -49,7 +49,7 @@ class DQNAgent:
         else:
             self.epsilon = 0.0
         self.epsilon_min = 0.05
-        self.epsilon_decay = epsilon
+        self.epsilon_decay = epsilon_decay
         self.model = DQN(input_shape, action_size).to(device)
         self.target_model = DQN(input_shape, action_size).to(device)
         self.optimizer = optim.Adam(self.model.parameters())
