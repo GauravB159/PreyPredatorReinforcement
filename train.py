@@ -72,7 +72,7 @@ class DQNAgent:
 
     @classmethod
     def load(cls, file_name, mode = 'train', env = None):
-        input_shape = (3, env.grid_size, env.grid_size)
+        input_shape = (4, env.grid_size, env.grid_size)
         agent = cls(input_shape = input_shape, mode = mode, history_length = env.observation_history_length)
         checkpoint = torch.load(file_name, map_location=device)
         agent.model.load_state_dict(checkpoint['model_state_dict'])
@@ -118,7 +118,7 @@ class DQNAgent:
     
 def train_dqn(env, episodes = 1000, epsilon = 0.995, avg_length = 10, target_update_freq = 100, load_saved = False):
     # Assume the state_size and action_size are the same for both types of agents for simplicity
-    input_shape = (3, env.grid_size, env.grid_size)  # Assuming 3 channels for prey, predators, and food
+    input_shape = (4, env.grid_size, env.grid_size)  # Assuming 3 channels for prey, predators, and food
     action_size = env.action_space.n
     if load_saved:
         prey_agent = DQNAgent.load("prey.pth", env = env)
@@ -163,9 +163,9 @@ def train_dqn(env, episodes = 1000, epsilon = 0.995, avg_length = 10, target_upd
             if env.stored_num_prey == 0:
                 break
             env.render()
-            
-        ep_avg += env.get_average_rewards()
-        print(f"{e + 1}/{episodes} done!")
+        reward = env.get_average_rewards()
+        ep_avg += reward
+        print(f"{e + 1}/{episodes} done! Reward: {reward}")
         if (e + 1) % avg_length == 0:
             predator_agent.save('predator.pth')
             prey_agent.save('prey.pth')
@@ -179,5 +179,5 @@ def train_dqn(env, episodes = 1000, epsilon = 0.995, avg_length = 10, target_upd
 
 
 if __name__ == '__main__':
-    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, padding = 10, food_probability=0.2, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
-    train_dqn(env, epsilon=1 - 5e-6, episodes=10000, avg_length=100)
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=50, max_steps_per_episode=100000, padding = 10, food_probability=0.1, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
+    train_dqn(env, epsilon=1 - 5e-6, episodes=20000, avg_length=100, target_update_freq=100)

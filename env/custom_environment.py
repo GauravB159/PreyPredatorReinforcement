@@ -32,7 +32,7 @@ class PreyPredatorEnv(AECEnv):
         # Define action and observation space
         self.action_space = spaces.Discrete(5) # Example: 0 = stay, 1-4 = move in directions
         # self.observation_space = spaces.Box(low=0, high=self.no_detection_value, shape=(self.observation_history_length, 8, 3), dtype=int)
-        self.observation_space = spaces.Box(low=0, high=1, shape=(3, self.grid_size, self.grid_size), dtype=int)
+        self.observation_space = spaces.Box(low=0, high=1, shape=(4, self.grid_size, self.grid_size), dtype=int)
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
         self.agent_name_mapping = dict(zip(self.agents, list(range(len(self.agents)))))
         self.predator_prey_eaten = {f"predator_{i}": 0 for i in range(num_predators)}
@@ -74,8 +74,8 @@ class PreyPredatorEnv(AECEnv):
         
         # Set the initial position
         if position is None:
-            x = ((self.grid_size // 2) + np.random.randint(self.grid_size // 2)) if agent_type == "predator"  else (np.random.randint(self.grid_size))
-            y = (self.grid_size // 2) * int(agent_type == "prey") + np.random.randint(self.grid_size // 2)
+            x = np.random.randint(self.grid_size)
+            y = np.random.randint(self.grid_size)
             position = (x, y)
         self.agents_positions[new_id] = position
         self.agents_energy[new_id] = self.initial_energy
@@ -95,20 +95,22 @@ class PreyPredatorEnv(AECEnv):
         
     def observe(self, agent=None):
         # Initialize an empty grid
-        observation = np.zeros((3, self.grid_size, self.grid_size), dtype=int)
+        observation = np.zeros((4, self.grid_size, self.grid_size), dtype=int)
 
         # Fill in the grid with positions of prey, predators, and food
         for other_agent in self.agents:
             if self.terminations[other_agent]:
                 continue
             x, y = self.agents_positions[other_agent]
-            if 'prey' in other_agent:
-                observation[0, x, y] = 1  # Mark as prey
+            if other_agent == agent:
+                observation[0, x, y] = 1
+            elif 'prey' in other_agent:
+                observation[1, x, y] = 1  # Mark as prey
             elif 'predator' in other_agent:
-                observation[1, x, y] = 1  # Mark as predator
+                observation[2, x, y] = 1  # Mark as predator
 
         for food_pos in self.food_positions:
-            observation[2, food_pos[0], food_pos[1]] = 1  # Mark as food
+            observation[3, food_pos[0], food_pos[1]] = 1  # Mark as food
 
         return observation
 
@@ -119,7 +121,7 @@ class PreyPredatorEnv(AECEnv):
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
         self.stored_num_predators = self.num_predators
         self.stored_num_prey = self.num_prey
-        self.agents_positions = {agent: (((self.grid_size // 2) + np.random.randint(self.grid_size // 2)) if "predator" in agent else (np.random.randint(self.grid_size)), (self.grid_size // 2) * int("prey" in agent) + np.random.randint(self.grid_size // 2)) for agent in self.agents}
+        self.agents_positions = {agent: (np.random.randint(self.grid_size), np.random.randint(self.grid_size)) for agent in self.agents}
         self.agents_energy = {agent: self.initial_energy for agent in self.agents}
         self.agents_alive = {agent: True for agent in self.agents}  # Track whether agents are alive
 
@@ -142,7 +144,7 @@ class PreyPredatorEnv(AECEnv):
     def generate_food(self):
         if random.random() < self.food_probability:
             # Add food at random positions, ensuring no duplicates
-            new_food_pos = (np.random.randint(self.grid_size // 2), np.random.randint(self.grid_size // 2))
+            new_food_pos = (np.random.randint(self.grid_size), np.random.randint(self.grid_size))
             if new_food_pos not in self.food_positions and new_food_pos not in self.agents_positions.values():
                 self.food_positions.append(new_food_pos)
 
@@ -151,13 +153,14 @@ class PreyPredatorEnv(AECEnv):
         agent = self.agent_selection
         done = self.terminations[agent]
         reward = 0
-
+        achievement = None
         if not done:  # Proceed only if the agent's episode is not done
             # Apply action and update environment state
             if self.agents_alive[agent] and self.agents_energy[agent] > 0:  # Proceed only if the agent is alive, or has energy
                 if 'prey' in agent  and self.agents_positions.get(self.agent_selection) in self.food_positions:
                     # Agent consumes food
                     # print(f"{self.agent_selection} has consumed food")
+                    achievement = "Prey ate food"
                     self.agents_energy[self.agent_selection] += self.food_energy_gain
                     self.food_positions.remove(self.agents_positions[self.agent_selection])
                 # Example movement action implementation
@@ -196,7 +199,7 @@ class PreyPredatorEnv(AECEnv):
                 # Check for reproduction or death conditions
                 # E.g., split or remove agents based on energy levels or other conditions
             # Update reward for the action taken
-            reward = self.calculate_reward(agent, action)  # You'll need to implement this based on your game's rules
+            reward = self.calculate_reward(agent, action, achievement)  # You'll need to implement this based on your game's rules
             self._cumulative_rewards[agent] += reward
 
             # Example condition to check if the agent's episode is done
@@ -227,9 +230,11 @@ class PreyPredatorEnv(AECEnv):
     def get_position(self, agent):
         return self.agents_positions.get(agent, (None, None))
 
-    def calculate_reward(self, agent, action):
+    def calculate_reward(self, agent, action, achievement):
         reward = 1  # Survival reward for taking a step.
         current_energy = self.agents_energy[agent]
+        if achievement == "Prey ate food":
+            reward += 10
         # Penalty if energy is critically low, encouraging finding food/prey.
         if current_energy < 20:
             reward -= 0.5
