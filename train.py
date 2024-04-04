@@ -116,7 +116,7 @@ class DQNAgent:
         # Update epsilon
         self.update_epsilon()
     
-def train_dqn(env, episodes = 1000, epsilon = 0.995, avg_length = 10, target_update_freq = 100, load_saved = False):
+def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, target_update_freq = 100, load_saved = False):
     # Assume the state_size and action_size are the same for both types of agents for simplicity
     input_shape = (3, env.grid_size, env.grid_size)  # Assuming 3 channels for prey, predators, and food
     action_size = env.action_space.n
@@ -124,8 +124,8 @@ def train_dqn(env, episodes = 1000, epsilon = 0.995, avg_length = 10, target_upd
         prey_agent = DQNAgent.load("prey.pth", env = env)
         predator_agent = DQNAgent.load("predator.pth", env = env)
     else:
-        prey_agent = DQNAgent(input_shape, action_size, epsilon = epsilon, history_length=env.observation_history_length)
-        predator_agent = DQNAgent(input_shape, action_size, epsilon = epsilon, history_length=env.observation_history_length)
+        prey_agent = DQNAgent(input_shape, action_size, epsilon_decay = epsilon_decay, history_length=env.observation_history_length)
+        predator_agent = DQNAgent(input_shape, action_size, epsilon_decay = epsilon_decay, history_length=env.observation_history_length)
     f = open("train.log", "a+")
     batch_size = 32
     ep_avg = 0
