@@ -32,7 +32,7 @@ class PreyPredatorEnv(AECEnv):
         # Define action and observation space
         self.action_space = spaces.Discrete(5) # Example: 0 = stay, 1-4 = move in directions
         # self.observation_space = spaces.Box(low=0, high=self.no_detection_value, shape=(self.observation_history_length, 8, 3), dtype=int)
-        self.observation_space = spaces.Box(low=0, high=1, shape=(4, self.grid_size, self.grid_size), dtype=int)
+        self.observation_space = spaces.Box(low=0, high=1, shape=(3, self.grid_size, self.grid_size), dtype=int)
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
         self.agent_name_mapping = dict(zip(self.agents, list(range(len(self.agents)))))
         self.predator_prey_eaten = {f"predator_{i}": 0 for i in range(num_predators)}
@@ -94,25 +94,39 @@ class PreyPredatorEnv(AECEnv):
         return sum(values) / len(values)
         
     def observe(self, agent=None):
-        # Initialize an empty grid
-        observation = np.zeros((4, self.grid_size, self.grid_size), dtype=int)
+        # Initialize the observation grid with "out of bounds" indication
+        # Assuming 0 is a valid value and -1 indicates "out of bounds"
+        observation = -np.ones((3, self.grid_size, self.grid_size), dtype=int)
 
-        # Fill in the grid with positions of prey, predators, and food
-        for other_agent in self.agents:
+        if agent not in self.agents_positions:
+            return observation
+
+        # Get the observing agent's position
+        agent_x, agent_y = self.agents_positions[agent]
+
+        for other_agent, (x, y) in self.agents_positions.items():
             if self.terminations[other_agent]:
                 continue
-            x, y = self.agents_positions[other_agent]
             if other_agent == agent:
-                observation[0, x, y] = 1
-            elif 'prey' in other_agent:
-                observation[1, x, y] = 1  # Mark as prey
-            elif 'predator' in other_agent:
-                observation[2, x, y] = 1  # Mark as predator
+                continue
+            # Calculate positions relative to the observing agent
+            rel_x, rel_y = x - agent_x + self.grid_size // 2, y - agent_y + self.grid_size // 2
 
+            # Check if the relative position is within the grid
+            if 0 <= rel_x < self.grid_size and 0 <= rel_y < self.grid_size:
+                if 'prey' in other_agent:
+                    observation[0, rel_x, rel_y] = 1  # Prey
+                elif 'predator' in other_agent:
+                    observation[1, rel_x, rel_y] = 1  # Predator
+
+        # Handle food similarly
         for food_pos in self.food_positions:
-            observation[3, food_pos[0], food_pos[1]] = 1  # Mark as food
+            rel_x, rel_y = food_pos[0] - agent_x + self.grid_size // 2, food_pos[1] - agent_y + self.grid_size // 2
+            if 0 <= rel_x < self.grid_size and 0 <= rel_y < self.grid_size:
+                observation[2, rel_x, rel_y] = 1  # Food
 
         return observation
+
 
 
 
@@ -231,7 +245,7 @@ class PreyPredatorEnv(AECEnv):
         return self.agents_positions.get(agent, (None, None))
 
     def calculate_reward(self, agent, action, achievement):
-        reward = 1  # Survival reward for taking a step.
+        reward = 0  # Survival reward for taking a step.
         current_energy = self.agents_energy[agent]
         if achievement == "Prey ate food":
             reward += 10
