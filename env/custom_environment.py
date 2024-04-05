@@ -10,7 +10,7 @@ import random
 class PreyPredatorEnv(AECEnv):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, padding = 10, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01):
+    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01):
         super().__init__()
         self.observation_history_length = observation_history_length
         self.prey_split_probability = prey_split_probability
@@ -19,7 +19,6 @@ class PreyPredatorEnv(AECEnv):
         self.num_predators = num_predators
         self.grid_size = grid_size
         self.initial_energy = initial_energy
-        self.padding = padding
         self.reproduction_energy = reproduction_energy
         self.stored_num_predators = -1
         self.screen = None
@@ -179,13 +178,13 @@ class PreyPredatorEnv(AECEnv):
                     self.food_positions.remove(self.agents_positions[self.agent_selection])
                 # Example movement action implementation
                 if action == 1:  # Move up
-                    self.agents_positions[agent] = (max(self.agents_positions[agent][0] - 1, self.padding), self.agents_positions[agent][1])
+                    self.agents_positions[agent] = (max(self.agents_positions[agent][0] - 1, 0), self.agents_positions[agent][1])
                 elif action == 2:  # Move down
-                    self.agents_positions[agent] = (min(self.agents_positions[agent][0] + 1, self.grid_size - self.padding), self.agents_positions[agent][1])
+                    self.agents_positions[agent] = (min(self.agents_positions[agent][0] + 1, self.grid_size - 1), self.agents_positions[agent][1])
                 elif action == 3:  # Move left
-                    self.agents_positions[agent] = (self.agents_positions[agent][0], max(self.agents_positions[agent][1] - 1, self.padding))
+                    self.agents_positions[agent] = (self.agents_positions[agent][0], max(self.agents_positions[agent][1] - 1, 0))
                 elif action == 4:  # Move right
-                    self.agents_positions[agent] = (self.agents_positions[agent][0], min(self.agents_positions[agent][1] + 1, self.grid_size - self.padding))
+                    self.agents_positions[agent] = (self.agents_positions[agent][0], min(self.agents_positions[agent][1] + 1, self.grid_size - 1))
                 # Example energy consumption for moving
                 self.agents_energy[agent] -= 1 # Deduct energy for taking a step
                 
@@ -299,7 +298,7 @@ class PreyPredatorEnv(AECEnv):
         self.cell_size = self.screen_size // self.grid_size
         self.screen = pygame.display.set_mode((self.screen_size + 200, self.screen_size))
         self.clock = pygame.time.Clock()  # For controlling the frame rate
-        self.actual_grid = pygame.Surface((self.screen_size - 2 * self.padding, self.screen_size), pygame.SRCALPHA)
+        self.actual_grid = pygame.Surface((self.screen_size, self.screen_size), pygame.SRCALPHA)
         self.actual_grid.fill((0, 0, 0, 10))
 
     def pygame_quit(self):
@@ -386,6 +385,12 @@ class PreyPredatorEnv(AECEnv):
             # Draw the text surfaces onto the screen
             self.draw_food(((food_text_pos - 20) / self.cell_size, 75 / self.cell_size))
             self.screen.blit(self.food_text, (food_text_pos, 70))
+        for x in range(0, self.screen_size, self.cell_size):
+            pygame.draw.line(self.screen, (200, 200, 200), (x, 0), (x, self.screen_size))
+        # Horizontal lines
+        for y in range(0, self.screen_size, self.cell_size):
+            pygame.draw.line(self.screen, (200, 200, 200), (0, y), (self.screen_size, y))
+
 
         pygame.display.flip()
         self.clock.tick(60)  # Control the frame rate

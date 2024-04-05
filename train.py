@@ -122,7 +122,7 @@ def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, targ
     action_size = env.action_space.n
     if load_saved:
         prey_agent = DQNAgent.load("prey.pth", env = env)
-        predator_agent = DQNAgent.load("predator.pth", env = env)
+        predator_agent = DQNAgent(input_shape, action_size, epsilon_decay = epsilon_decay, history_length=env.observation_history_length)
     else:
         prey_agent = DQNAgent(input_shape, action_size, epsilon_decay = epsilon_decay, history_length=env.observation_history_length)
         predator_agent = DQNAgent(input_shape, action_size, epsilon_decay = epsilon_decay, history_length=env.observation_history_length)
@@ -140,12 +140,7 @@ def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, targ
         for time in range(500):  # Assuming a max number of steps per episode
             if env.render_mode == 'human':
                 event = pygame.event.get()
-            # The following part needs significant adjustments:
-            # - Determine if the current agent is a prey or a predator
-            # - Fetch the appropriate state for the agent
-            # - Decide on actions for both prey and predator
-            # - Step through the environment and update states and memories accordingly
-
+                
             # Simplified action selection for both agents (you need logic to distinguish between agent types)
             prey_action = prey_agent.act(prey_state)
 
@@ -179,5 +174,5 @@ def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, targ
 
 
 if __name__ == '__main__':
-    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=25, max_steps_per_episode=100000, padding = 10, food_probability=0.1, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
-    train_dqn(env, epsilon_decay=1 - 5e-7, episodes=200000, avg_length=1000, target_update_freq=1000, load_saved=False)
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=10, max_steps_per_episode=100000, food_probability=0.05, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
+    train_dqn(env, epsilon_decay=1 - 5e-6, episodes=20000, avg_length=100, target_update_freq=100, load_saved=False)
