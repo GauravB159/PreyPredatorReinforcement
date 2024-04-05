@@ -180,4 +180,4 @@ def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, targ
 
 if __name__ == '__main__':
     env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=25, max_steps_per_episode=100000, padding = 10, food_probability=0.1, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
-    train_dqn(env, epsilon_decay=1 - 5e-6, episodes=20000, avg_length=100, target_update_freq=100, load_saved=False)
+    train_dqn(env, epsilon_decay=1 - 5e-7, episodes=200000, avg_length=1000, target_update_freq=1000, load_saved=False)
