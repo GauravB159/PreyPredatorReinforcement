@@ -305,13 +305,15 @@ class PreyPredatorEnv(AECEnv):
         pygame.quit()
         sys.exit()
         
-    def draw_food(self, pos):
+    def draw_food(self, pos, cell_size = None):
         # Draw food on the grid, maybe as green squares
-        center_x = pos[0] * self.cell_size + self.cell_size // 2
-        center_y = pos[1] * self.cell_size + self.cell_size // 2
+        if not cell_size:
+            cell_size = self.cell_size
+        center_x = pos[0] * cell_size + cell_size // 2
+        center_y = pos[1] * cell_size + cell_size // 2
         
         # Define the size of the triangle
-        triangle_size = self.cell_size  # Adjust this value as needed
+        triangle_size = cell_size  # Adjust this value as needed
         
         # Calculate the points of the triangle (equilateral for simplicity)
         point1 = (center_x, center_y - triangle_size // 2)
@@ -321,13 +323,17 @@ class PreyPredatorEnv(AECEnv):
         # Draw the triangle
         pygame.draw.polygon(self.screen, (17, 186, 17), [point1, point2, point3]) 
         
-    def draw_predator(self, pos):
+    def draw_predator(self, pos, cell_size = None):
         color = (229, 48, 48) # Red for predator
-        pygame.draw.circle(self.screen, color, center=(pos[0]*self.cell_size, pos[1]*self.cell_size), radius=self.cell_size)
+        if not cell_size:
+            cell_size = self.cell_size
+        pygame.draw.circle(self.screen, color, center=(pos[0]*cell_size, pos[1]*cell_size), radius=cell_size)
         
-    def draw_prey(self, pos):
+    def draw_prey(self, pos, cell_size = None):
         color = (255, 189, 29)  # Yellow for prey
-        pygame.draw.rect(self.screen, color, [pos[0]*self.cell_size, pos[1]*self.cell_size, self.cell_size, self.cell_size])
+        if not cell_size:
+            cell_size = self.cell_size
+        pygame.draw.rect(self.screen, color, [pos[0]*cell_size, pos[1]*cell_size, cell_size, cell_size])
 
     def render(self, mode='human'):
         if mode != 'human' or not self.screen:
@@ -363,11 +369,12 @@ class PreyPredatorEnv(AECEnv):
         self.food_text = self.myfont.render(f'Food: {len(self.food_positions)}', True, (0, 0, 0))
         prey_energy = [self.agents_energy[k] for k in self.agents_energy if "prey" in k]
         predator_energy = [self.agents_energy[k] for k in self.agents_energy if "predator" in k]
+        icon_size = 15
         if self.num_prey > 0:
             self.average_prey_energy_text = self.myfont.render(f'Prey Energy: {sum(prey_energy) / len(prey_energy):.2f}', True, (0, 0, 0))
             prey_text_pos = self.screen.get_width() - self.prey_text.get_width() - 10
             prey_energy_text_pos = self.screen.get_width() - self.average_prey_energy_text.get_width() - 10
-            self.draw_prey(((prey_text_pos - 20) / self.cell_size, 15 / self.cell_size))
+            self.draw_prey(((prey_text_pos - 20) / icon_size, 10 / icon_size), icon_size)
             self.screen.blit(self.prey_text, (prey_text_pos, 10))
             self.screen.blit(self.average_prey_energy_text, (prey_energy_text_pos, 100))
             
@@ -375,7 +382,7 @@ class PreyPredatorEnv(AECEnv):
             self.average_predator_energy_text = self.myfont.render(f'Predator Energy: {sum(predator_energy) / len(predator_energy):.2f}', True, (0, 0, 0))
             predator_energy_text_pos = self.screen.get_width() - self.average_predator_energy_text.get_width() - 10
             predator_text_pos = self.screen.get_width() - self.predator_text.get_width() - 10
-            self.draw_predator(((predator_text_pos - 20) / self.cell_size, 48 / self.cell_size))
+            self.draw_predator(((predator_text_pos - 20) / icon_size, 48 / icon_size), icon_size)
             self.screen.blit(self.predator_text, (predator_text_pos, 40))
             self.screen.blit(self.average_predator_energy_text, (predator_energy_text_pos, 130))
 
@@ -383,7 +390,7 @@ class PreyPredatorEnv(AECEnv):
             # Calculate positions for text (top right corner)
             food_text_pos = self.screen.get_width() - self.food_text.get_width() - 10
             # Draw the text surfaces onto the screen
-            self.draw_food(((food_text_pos - 20) / self.cell_size, 75 / self.cell_size))
+            self.draw_food(((food_text_pos - 20) / icon_size, 70 / icon_size), icon_size)
             self.screen.blit(self.food_text, (food_text_pos, 70))
         for x in range(0, self.screen_size, self.cell_size):
             pygame.draw.line(self.screen, (200, 200, 200), (x, 0), (x, self.screen_size))
