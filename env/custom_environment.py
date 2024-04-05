@@ -243,6 +243,35 @@ class PreyPredatorEnv(AECEnv):
 
     def get_position(self, agent):
         return self.agents_positions.get(agent, (None, None))
+    
+    def calculate_distance(self, pos1, pos2):
+        return np.sqrt((pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2)
+    
+    def calculate_proximity_reward(self, agent):
+        proximity_reward = 0
+        agent_pos = self.agents_positions[agent]
+        
+        if 'prey' in agent:
+            # For prey, find the closest predator and food to adjust the reward based on distance
+            closest_predator_distance = min([self.calculate_distance(agent_pos, self.agents_positions[a]) for a in self.agents_positions if 'predator' in a], default=float('inf'))
+            closest_food_distance = min([self.calculate_distance(agent_pos, f) for f in self.food_positions], default=float('inf'))
+            
+            # Reward for getting closer to food and penalize for getting closer to a predator
+            if closest_food_distance != float('inf'):
+                proximity_reward += 1 / (1 + closest_food_distance)  # Scaled inversely by distance to food
+            if closest_predator_distance != float('inf'):
+                proximity_reward -= 1 / (1 + closest_predator_distance)  # Penalty scaled inversely by distance to predator
+
+        elif 'predator' in agent:
+            # For predators, find the closest prey to adjust the reward based on distance
+            closest_prey_distance = min([self.calculate_distance(agent_pos, self.agents_positions[a]) for a in self.agents_positions if 'prey' in a], default=float('inf'))
+            
+            # Reward for getting closer to prey
+            if closest_prey_distance != float('inf'):
+                proximity_reward += 2 / (1 + closest_prey_distance)  # Reward scaled inversely by distance to prey
+
+        return proximity_reward
+
 
     def calculate_reward(self, agent, action, achievement):
         reward = 0  # Survival reward for taking a step.
@@ -252,10 +281,12 @@ class PreyPredatorEnv(AECEnv):
         # Penalty if energy is critically low, encouraging finding food/prey.
         if current_energy < 20:
             reward -= 0.5
+            
+        reward += self.calculate_proximity_reward(agent)
 
         # Significant penalty for death to emphasize survival.
         if not self.agents_alive[agent]:
-            reward -= 10
+            reward -= 50
 
         return reward
 
