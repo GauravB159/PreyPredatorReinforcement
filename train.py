@@ -239,5 +239,5 @@ def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, targ
             ep_avg = 0
 
 if __name__ == '__main__':
-    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=30, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode="human", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=30, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
     train_dqn(env, epsilon_decay=0.99999, episodes=20000, avg_length=100, target_update_freq=50, load_saved=False)
