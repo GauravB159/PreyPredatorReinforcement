@@ -75,7 +75,7 @@ class PreyPredatorEnv(AECEnv):
         
         # Set the initial position
         if position is None:
-            x = ((self.grid_size // 2) + np.random.randint(self.grid_size // 2)) if agent_type == "predator"  else (np.random.randint(self.grid_size))
+            x = ((self.grid_size // 2) + np.random.randint(self.grid_size // 2))
             y = (self.grid_size // 2) * int(agent_type == "prey") + np.random.randint(self.grid_size // 2)
             position = (x, y)
         self.agents_positions[new_id] = position
@@ -136,7 +136,8 @@ class PreyPredatorEnv(AECEnv):
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
         self.stored_num_predators = self.num_predators
         self.stored_num_prey = self.num_prey
-        self.agents_positions = self.agents_positions = {agent: (((self.grid_size // 2) + np.random.randint(self.grid_size // 2)) if "predator" in agent else (np.random.randint(self.grid_size)), (self.grid_size // 2) * int("prey" in agent) + np.random.randint(self.grid_size // 2)) for agent in self.agents}
+        self.current_food_count = 0
+        self.agents_positions = self.agents_positions = {agent: (((self.grid_size // 4) + np.random.randint(self.grid_size // 4)), (self.grid_size // 2) * int("prey" in agent) + np.random.randint(self.grid_size // 2)) for agent in self.agents}
         self.agents_energy = {agent: self.initial_energy for agent in self.agents}
         self.agents_alive = {agent: True for agent in self.agents}  # Track whether agents are alive
 
