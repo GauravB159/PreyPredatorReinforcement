@@ -10,13 +10,15 @@ import random
 class PreyPredatorEnv(AECEnv):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01):
+    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01, max_food_count = 5):
         super().__init__()
         self.observation_history_length = observation_history_length
         self.prey_split_probability = prey_split_probability
         self.num_prey = num_prey
         self.render_mode = render_mode
         self.num_predators = num_predators
+        self.max_food_count = max_food_count
+        self.current_food_count = 0
         self.grid_size = grid_size
         self.initial_energy = initial_energy
         self.reproduction_energy = reproduction_energy
@@ -155,7 +157,8 @@ class PreyPredatorEnv(AECEnv):
             self.pygame_init()
 
     def generate_food(self):
-        if random.random() < self.food_probability:
+        if random.random() < self.food_probability and self.current_food_count < self.max_food_count:
+            self.current_food_count += 1
             # Add food at random positions, ensuring no duplicates
             new_food_pos = (np.random.randint(self.grid_size // 2), np.random.randint(self.grid_size // 2))
             if new_food_pos not in self.food_positions and new_food_pos not in self.agents_positions.values():

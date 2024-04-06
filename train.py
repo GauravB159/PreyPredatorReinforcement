@@ -6,16 +6,20 @@ import random
 from collections import deque
 from env.custom_environment import PreyPredatorEnv
 import pygame
+import random
+from collections import deque
+import numpy as np
+import pandas as pd
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class DQN(nn.Module):
     def __init__(self, input_shape, action_size):
         super(DQN, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=input_shape[0], out_channels=32, kernel_size=3, stride=1, padding=1)
+        self.conv1 = nn.Conv2d(in_channels=input_shape[0], out_channels=16, kernel_size=3, stride=1, padding=1)
         self.relu = nn.ReLU()
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
-        self.fc1 = nn.Linear(64 * input_shape[1] * input_shape[2], 128)  # Adjust for output size of conv2
-        self.fc2 = nn.Linear(128, action_size)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)
+        self.fc1 = nn.Linear(32 * input_shape[1] * input_shape[2], 32)  # Adjust for output size of conv2
+        self.fc2 = nn.Linear(32, action_size)
     
     def forward(self, x):
         x = self.relu(self.conv1(x))
@@ -25,34 +29,64 @@ class DQN(nn.Module):
         return self.fc2(x)
 
     
-class ReplayBuffer:
-    def __init__(self, capacity):
+
+class PrioritizedReplayBuffer:
+    def __init__(self, capacity, alpha=0.6):
+        self.alpha = alpha  # Controls how much prioritization is used, 0 means uniform
         self.buffer = deque(maxlen=capacity)
+        self.priorities = deque(maxlen=capacity)  # Store priorities for each experience
+        self.max_priority = 1.0  # Start with a high priority for every new experience
 
     def push(self, state, action, reward, next_state, done):
+        # Store the new experience with the maximum current priority
         self.buffer.append((state, action, reward, next_state, done))
+        self.priorities.append(self.max_priority)
 
-    def sample(self, batch_size):
-        return random.sample(self.buffer, batch_size)
+    def sample(self, batch_size, beta=0.4):
+        # Convert priorities to probabilities
+        scaled_priorities = np.array(self.priorities) ** self.alpha
+        sample_probs = scaled_priorities / sum(scaled_priorities)
+        
+        # Sample experiences based on these probabilities
+        sampled_indices = random.choices(range(len(self.buffer)), k=batch_size, weights=sample_probs)
+        samples = [self.buffer[idx] for idx in sampled_indices]
+        
+        # Compute importance-sampling weights to correct bias
+        total = len(self.buffer)
+        weights = (total * sample_probs[sampled_indices]) ** (-beta)
+        weights /= weights.max()  # Normalize for stability
+        
+        return samples, weights, sampled_indices
+
+    def update_priorities(self, indices, new_priorities):
+        # Update priorities based on TD error
+        new_priorities = new_priorities.flatten()
+        for idx, priority in zip(indices, new_priorities):
+            self.priorities[idx] = priority.item()
+            self.max_priority = max(self.max_priority, priority)
 
     def __len__(self):
         return len(self.buffer)
+
 
 class DQNAgent:
     def __init__(self, input_shape = 24, action_size = 5, mode = 'train', epsilon_decay = 0.995, history_length = 5):
         self.input_shape = input_shape
         self.action_size = action_size
-        self.memory = ReplayBuffer(1000000)
+        self.memory = PrioritizedReplayBuffer(1000000, alpha=0.6)  # Initialize prioritized replay buffer
+        self.beta_start = 0.4  # Start value of beta
+        self.beta_increment_per_sampling = 0.001
+        self.beta = self.beta_start
         self.gamma = 0.99  # discount rate
         if mode == 'train':
             self.epsilon = 1.0  # exploration rate
         else:
             self.epsilon = 0.0
-        self.epsilon_min = 0.05
+        self.epsilon_min = 0.1
         self.epsilon_decay = epsilon_decay
         self.model = DQN(input_shape, action_size).to(device)
         self.target_model = DQN(input_shape, action_size).to(device)
-        self.optimizer = optim.Adam(self.model.parameters())
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.00625)
         self.update_target_model() 
 
     def update_epsilon(self):
@@ -80,8 +114,8 @@ class DQNAgent:
         agent.epsilon = checkpoint['epsilon']
         return agent
 
-    def act(self, state):
-        if np.random.rand() <= self.epsilon:
+    def act(self, state, test = False):
+        if np.random.rand() <= self.epsilon and not test:
             return random.randrange(self.action_size)
         state = torch.FloatTensor(state).unsqueeze(0).to(device)  # Add batch dimension
         action_values = self.model(state)
@@ -90,7 +124,7 @@ class DQNAgent:
     def replay(self, batch_size):
         if len(self.memory) < batch_size:
             return
-        minibatch = self.memory.sample(batch_size)
+        minibatch, weights, indices = self.memory.sample(batch_size, beta=self.beta)
         # Extract information from the minibatch
         states = torch.FloatTensor(np.array([s[0] for s in minibatch])).to(device)
         actions = torch.LongTensor(np.array([s[1] for s in minibatch])).unsqueeze(1).to(device)
@@ -108,13 +142,37 @@ class DQNAgent:
 
         # Compute loss
         loss = nn.MSELoss()(current_q_values, target_q_values)
+        loss = (torch.FloatTensor(weights).to(device) * loss).mean()
         # Optimize the model
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-
+        with torch.no_grad():
+            new_priorities = torch.abs(current_q_values - target_q_values).cpu().numpy()
+            new_priorities += 1e-5  # Avoid zero priority
+        self.memory.update_priorities(indices, new_priorities)
         # Update epsilon
         self.update_epsilon()
+        
+def test_dqn(env, agent, episodes=10):
+    """Test the DQN agent over a specified number of episodes."""
+    total_reward = 0
+    for episode in range(episodes):
+        env.reset()
+        state = env.initial_obs
+        episode_reward = 0
+        done = False
+        while not done:
+            action = agent.act(state, test=True)  # Ensure the agent selects the action with the highest Q-value
+            next_state, reward, done = env.step(action)
+            state = next_state
+            episode_reward += reward
+            if done:
+                break
+        total_reward += episode_reward
+    avg_reward = total_reward / episodes
+    print(f"Test Episodes: {episodes}, Average Reward: {avg_reward}")
+    return avg_reward
     
 def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, target_update_freq = 100, load_saved = False):
     # Assume the state_size and action_size are the same for both types of agents for simplicity
@@ -126,7 +184,7 @@ def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, targ
     else:
         prey_agent = DQNAgent(input_shape, action_size, epsilon_decay = epsilon_decay, history_length=env.observation_history_length)
         predator_agent = DQNAgent(input_shape, action_size, epsilon_decay = epsilon_decay, history_length=env.observation_history_length)
-    f = open("train.log", "a+")
+    log = []
     batch_size = 32
     ep_avg = 0
     for e in range(episodes):
@@ -137,7 +195,7 @@ def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, targ
             prey_agent.update_target_model()
             predator_agent.update_target_model()
 
-        for time in range(500):  # Assuming a max number of steps per episode
+        for time in range(200):  # Assuming a max number of steps per episode
             if env.render_mode == 'human':
                 event = pygame.event.get()
                 
@@ -162,17 +220,24 @@ def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, targ
         ep_avg += reward
         print(f"{e + 1}/{episodes} done! Reward: {reward}")
         if (e + 1) % avg_length == 0:
+            test_avg = test_dqn(env, prey_agent, episodes=avg_length)
             predator_agent.save('predator.pth')
             prey_agent.save('prey.pth')
             # Example logging
-            f.write(f"Episode: {e + 1}/{episodes}, Score: {ep_avg / avg_length}, Prey Epsilon: {prey_agent.epsilon}, Predator Epsilon: {predator_agent.epsilon}\n")
+            row = {
+                "Episode": e + 1,
+                "Total Episodes": episodes,
+                "Train Score": ep_avg / avg_length,
+                "Test Score": test_avg,
+                "Prey Epsilon": prey_agent.epsilon,
+                "Predator Epsilon": predator_agent.epsilon
+            }
+            log.append(row)
             print(f"Saving current model with avg: {ep_avg/avg_length}")
             print("")
-            f.flush()
+            pd.DataFrame(log, columns=list(row.keys())).to_csv("log.csv", index=None)
             ep_avg = 0
-    f.close()
-
 
 if __name__ == '__main__':
-    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, food_probability=0.2, render_mode="human", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
-    train_dqn(env, epsilon_decay=1 - 5e-6, episodes=20000, avg_length=100, target_update_freq=100, load_saved=False)
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=30, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
+    train_dqn(env, epsilon_decay=0.99999, episodes=20000, avg_length=100, target_update_freq=50, load_saved=False)
