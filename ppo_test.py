@@ -3,7 +3,7 @@ from ppo_train import PPO
 import pygame
 
 def test():
-    env = PreyPredatorEnv(num_prey=3, num_predators=0, grid_size=40, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode="human", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=20, padding=20)
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode="human", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=8, padding=0)
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
     action_space_dim = env.action_space.n
 

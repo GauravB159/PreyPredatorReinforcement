@@ -4,7 +4,7 @@ import torch.optim as optim
 from torch.distributions.categorical import Categorical
 from env.custom_environment import PreyPredatorEnv
 import pandas as pd
-
+import pygame
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -122,16 +122,21 @@ class Memory:
         del self.is_terminals[:]
 
 def train(load = False):
-    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=7)
+    env = PreyPredatorEnv(num_prey=1, num_predators=1, grid_size=25, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode="human", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=10)
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
     action_space_dim = env.action_space.n
 
     # Initialize PPO agent
-    ppo = PPO(observation_space_dim, action_space_dim)
+    prey_ppo = PPO(observation_space_dim, action_space_dim)
+    predator_ppo = PPO(observation_space_dim, action_space_dim)
     if load:
-        ppo.load_model("ppo_agent.pth")
-    memory = Memory()
+        prey_ppo.load_model("prey_ppo_agent.pth")
+        predator_ppo.load_model("predator_ppo_agent.pth")
 
+    # Separate memories for prey and predator
+    prey_memory = Memory()
+    predator_memory = Memory()
+    
     # Training hyperparameters
     max_episodes = 100000  # Adjust accordingly
     max_timesteps = 600  # Adjust accordingly
@@ -139,62 +144,85 @@ def train(load = False):
     logging_interval = 200  # Log avg reward after interval
     save_interval = 5000
     timestep_count = 0
-    rewards = []
+    prey_rewards = []
+    predator_rewards = []
     avg_length = 0
     logs = []
-    # Main training loop
+    
+    # Adjust training loop to handle both prey and predator
     for episode in range(1, max_episodes+1):
         env.reset()
-        state = env.initial_obs.reshape(-1)
-        ep_reward = 0
+        prey_state = env.initial_obs
+        predator_state = env.initial_obs
+        ep_predator_reward = 0
+        ep_prey_reward = 0
         for t in range(max_timesteps):
-            timestep_count += 1
-            
-            # Running policy_old:
-            action = ppo.select_action(state, memory)
-            state, reward, done = env.step(action)  # Adjust according to how your env returns values
-            
-            # Save in memory
-            memory.rewards.append(reward)
-            memory.is_terminals.append(done)
-            
-            # Update if its time
-            if timestep_count % update_timestep == 0:
-                ppo.update(memory)
-                memory.clear_memory()
-                timestep_count = 0
-            
-            if env.stored_num_prey == 0:
-                break
-            
-            state = state.reshape(-1)
-            ep_reward += reward
-            env.render()
-            if done:
-                break
-        rewards.append(ep_reward)
-        avg_length += t
+            # Select and perform actions for both prey and predator
+            agent_count = env.stored_num_predators + env.stored_num_prey
+            agents_moved = 0
+            while agents_moved < agent_count:
+                if env.render_mode == 'human':
+                    event = pygame.event.get()
+                agents_moved += 1
+                current_agent = env.agent_selection
+                if 'prey' in current_agent:
+                    action = prey_ppo.select_action(prey_state, prey_memory)
+                else:
+                    action = predator_ppo.select_action(predator_state, predator_memory)
 
-        # Logging
+                # Step the environment
+                next_state, reward, done = env.step(action)
+
+                # Update memories
+                if 'prey' in current_agent:
+                    prey_memory.rewards.append(reward)
+                    prey_memory.is_terminals.append(done)
+                    prey_state = next_state
+                    ep_prey_reward += reward
+                else:
+                    predator_memory.rewards.append(reward)
+                    predator_memory.is_terminals.append(done)
+                    predator_state = next_state
+                    ep_predator_reward += reward
+
+                # Update agents if it's time
+                if (timestep_count + 1) % update_timestep == 0:
+                    prey_ppo.update(prey_memory)
+                    predator_ppo.update(predator_memory)
+                    prey_memory.clear_memory()
+                    predator_memory.clear_memory()
+                    timestep_count = 0
+                env.render()
+                if env.stored_num_predators + env.stored_num_prey == 0:
+                    break
+        
+        prey_rewards.append(ep_prey_reward)
+        predator_rewards.append(ep_predator_reward)
+        
+        # Save models periodically
         if episode % save_interval == 0:
-            ppo.save_model("ppo_agent.pth")
-        # print(f'Episode {episode} \t Reward: {ep_reward:.2f}')
+            prey_ppo.save_model("prey_ppo_agent.pth")
+            predator_ppo.save_model("predator_ppo_agent.pth")
+        print(f'Episode {episode} \t Prey Reward: {ep_prey_reward:.2f} \t Predator Reward: {ep_predator_reward:.2f}')
         if episode % logging_interval == 0:
             avg_length = int(avg_length/logging_interval)
-            avg_reward = sum(rewards)/len(rewards)
+            avg_prey_reward = sum(prey_rewards)/len(prey_rewards)
+            avg_predator_reward = sum(predator_rewards)/len(predator_rewards)
             log = {
                 "Episode": episode,
                 "Avg length": avg_length, 
-                "Avg reward": avg_reward
+                "Avg prey reward": avg_prey_reward,
+                "Avg predator reward": avg_predator_reward
             }
             print(log)
             print()
             logs.append(log)
             pd.DataFrame(logs).to_csv("ppo_log.csv", index=None)
-            rewards = []
+            prey_rewards = []
+            predator_rewards = []
             avg_length = 0
     
     env.close()
 
 if __name__ == '__main__':
-    train(True)
+    train(False)

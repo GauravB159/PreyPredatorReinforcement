@@ -178,7 +178,7 @@ class PreyPredatorEnv(AECEnv):
         if not done:  # Proceed only if the agent's episode is not done
             # Apply action and update environment state
             if self.agents_alive[agent] and self.agents_energy[agent] > 0:  # Proceed only if the agent is alive, or has energy
-                if 'prey' in agent  and self.agents_positions.get(self.agent_selection) in self.food_positions:
+                if 'prey' in agent and self.agents_positions.get(self.agent_selection) in self.food_positions:
                     # Agent consumes food
                     # print(f"{self.agent_selection} has consumed food")
                     achievement = "Prey ate food"
@@ -210,6 +210,7 @@ class PreyPredatorEnv(AECEnv):
                             # Example: Remove the prey from the simulation
                             self.agents_positions.pop(prey_agent)
                             self.predator_prey_eaten[agent] += 1
+                            achievement = "Predator ate prey"
                             # Mark the prey as done (or removed)
                             self.terminations[prey_agent] = True
                             self.agents_energy[prey_agent] = 0
@@ -284,9 +285,9 @@ class PreyPredatorEnv(AECEnv):
     def calculate_reward(self, agent, action, achievement):
         reward = 0  # Survival reward for taking a step.
         current_energy = self.agents_energy[agent]
-        if achievement == "Prey ate food":
+        if achievement == "Prey ate food" or achievement == "Predator ate prey":
             reward += 50
-        # Penalty if energy is critically low, encouraging finding food/prey.
+            
         if current_energy < 20:
             reward -= 0.5
             
@@ -336,7 +337,7 @@ class PreyPredatorEnv(AECEnv):
         color = (229, 48, 48) # Red for predator
         if not cell_size:
             cell_size = self.cell_size
-        pygame.draw.circle(self.screen, color, center=(pos[0]*cell_size, pos[1]*cell_size), radius=cell_size)
+        pygame.draw.circle(self.screen, color, center=(pos[0]*cell_size - cell_size / 2, pos[1]*cell_size - cell_size / 2), radius=cell_size / 2)
         
     def draw_prey(self, pos, cell_size = None):
         color = (255, 189, 29)  # Yellow for prey
