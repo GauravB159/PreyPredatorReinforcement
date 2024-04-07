@@ -122,7 +122,7 @@ class Memory:
         del self.is_terminals[:]
 
 def run(load = False, test = False, render_mode = "non"):
-    env = PreyPredatorEnv(num_prey=5, num_predators=1, grid_size=25, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode=render_mode, prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=3)
+    env = PreyPredatorEnv(num_prey=5, num_predators=1, grid_size=25, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode=render_mode, prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=6, padding = 2)
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
     action_space_dim = env.action_space.n
 
@@ -142,7 +142,7 @@ def run(load = False, test = False, render_mode = "non"):
     max_timesteps = 600  # Adjust accordingly
     update_timestep = 3000  # Update policy every n timesteps
     logging_interval = 20  # Log avg reward after interval
-    save_interval = 2000
+    save_interval = 500
     timestep_count = 0
     prey_rewards = []
     predator_rewards = []
@@ -202,11 +202,11 @@ def run(load = False, test = False, render_mode = "non"):
         predator_rewards.append(ep_predator_reward)
         
         # Save models periodically
-        if episode % save_interval == 0:
+        if not test and episode % save_interval == 0:
             prey_ppo.save_model("prey_ppo_agent.pth")
             predator_ppo.save_model("predator_ppo_agent.pth")
         print(f'Episode {episode} \t Prey Reward: {ep_prey_reward:.2f} \t Predator Reward: {ep_predator_reward:.2f}')
-        if episode % logging_interval == 0:
+        if not test and episode % logging_interval == 0:
             avg_length = int(avg_length/logging_interval)
             avg_prey_reward = sum(prey_rewards)/len(prey_rewards)
             avg_predator_reward = sum(predator_rewards)/len(predator_rewards)
