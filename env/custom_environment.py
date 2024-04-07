@@ -20,6 +20,7 @@ class PreyPredatorEnv(AECEnv):
         self.max_food_count = max_food_count
         self.current_food_count = 0
         self.grid_size = grid_size
+        self.padding = 0
         self.initial_energy = initial_energy
         self.reproduction_energy = reproduction_energy
         self.stored_num_predators = -1
@@ -28,23 +29,19 @@ class PreyPredatorEnv(AECEnv):
         self.max_steps_per_episode = max_steps_per_episode
         self.max_detection_range = self.grid_size  # Maximum range a ray can detect
         self.no_detection_value = self.max_detection_range + 1  # Value for no detection in a direction
-        self.default_observation = np.full((8, 3), self.no_detection_value, dtype=np.float32)  # Initialize observation with no detections
         self.energy_gain_from_eating = 100
         self.std_dev = std_dev
+        self.observation_size = 2 * self.grid_size
         # Define action and observation space
         self.action_space = spaces.Discrete(5) # Example: 0 = stay, 1-4 = move in directions
         # self.observation_space = spaces.Box(low=0, high=self.no_detection_value, shape=(self.observation_history_length, 8, 3), dtype=int)
-        self.observation_space = spaces.Box(low=0, high=1, shape=(3, self.grid_size, self.grid_size), dtype=int)
+        self.observation_space = spaces.Box(low=0, high=1, shape=(3, self.observation_size, self.observation_size), dtype=int)
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
         self.agent_name_mapping = dict(zip(self.agents, list(range(len(self.agents)))))
         self.predator_prey_eaten = {f"predator_{i}": 0 for i in range(num_predators)}
         self.observation_histories = {agent: deque(maxlen=observation_history_length) for agent in self.agents}
-        self.stacked_default_observation = deque(maxlen=observation_history_length)
         self.reset()
         self.initial_obs = self.observe()
-        for _ in range(self.observation_history_length):
-            self.stacked_default_observation.append(self.initial_obs)
-        self.stacked_flattened_default_observation = np.stack(self.stacked_default_observation, axis=0).flatten()
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
         
@@ -92,7 +89,6 @@ class PreyPredatorEnv(AECEnv):
         self.agents_alive[new_id] = True
         self.terminations[new_id] = False
         self.truncations[new_id] = False
-        self.observation_histories[new_id] = self.stacked_default_observation
         self.infos[new_id] = {}
         self._cumulative_rewards[new_id] = 0
         self.agent_name_mapping = dict(zip(self.agents, list(range(len(self.agents)))))
@@ -106,7 +102,7 @@ class PreyPredatorEnv(AECEnv):
     def observe(self, agent=None):
         # Initialize the observation grid with "out of bounds" indication
         # Assuming 0 is a valid value and -1 indicates "out of bounds"
-        observation = -np.ones((3, self.grid_size, self.grid_size), dtype=int)
+        observation = np.zeros((3, self.observation_size, self.observation_size), dtype=int)
 
         if agent not in self.agents_positions:
             return observation
@@ -123,7 +119,7 @@ class PreyPredatorEnv(AECEnv):
             rel_x, rel_y = x - agent_x + self.grid_size // 2, y - agent_y + self.grid_size // 2
 
             # Check if the relative position is within the grid
-            if 0 <= rel_x < self.grid_size and 0 <= rel_y < self.grid_size:
+            if 0 <= rel_x < self.observation_size and 0 <= rel_y < self.observation_size:
                 if 'prey' in other_agent:
                     observation[0, rel_x, rel_y] = 1  # Prey
                 elif 'predator' in other_agent:
@@ -132,16 +128,16 @@ class PreyPredatorEnv(AECEnv):
         # Handle food similarly
         for food_pos in self.food_positions:
             rel_x, rel_y = food_pos[0] - agent_x + self.grid_size // 2, food_pos[1] - agent_y + self.grid_size // 2
-            if 0 <= rel_x < self.grid_size and 0 <= rel_y < self.grid_size:
+            if 0 <= rel_x < self.observation_size and 0 <= rel_y < self.observation_size:
                 observation[2, rel_x, rel_y] = 1  # Food
 
         return observation
 
     def reset(self):
         # Reset or initialize agents' states
-        self.generator_coords_prey = (5, 5)
-        self.generator_coords_predator = (5, self.grid_size - 5)
-        self.generator_coords_food = (self.grid_size - 5, self.grid_size - 5)
+        self.generator_coords_prey = (self.padding, self.padding)
+        self.generator_coords_predator = (self.padding, self.grid_size - self.padding - 1)
+        self.generator_coords_food = (self.grid_size - self.padding - 1, self.grid_size - self.padding - 1)
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
         self.stored_num_predators = self.num_predators
         self.stored_num_prey = self.num_prey
@@ -162,8 +158,6 @@ class PreyPredatorEnv(AECEnv):
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
         self.observation_histories = {agent: deque(maxlen=self.observation_history_length) for agent in self.agents}
-        for agent in self.agents:
-            self.observation_histories[agent] = self.stacked_default_observation
         if self.render_mode == 'human':
             self.pygame_init()
 
@@ -200,7 +194,7 @@ class PreyPredatorEnv(AECEnv):
                 elif action == 4:  # Move right
                     self.agents_positions[agent] = (self.agents_positions[agent][0], min(self.agents_positions[agent][1] + 1, self.grid_size - 1))
                 # Example energy consumption for moving
-                self.agents_energy[agent] -= 1 # Deduct energy for taking a step
+                self.agents_energy[agent] -= 4 # Deduct energy for taking a step
                 
                 # Example interaction: Predation or eating
                 # You'll need to implement logic to check for such interactions based on positions and agent types
@@ -252,7 +246,7 @@ class PreyPredatorEnv(AECEnv):
         self.stored_num_predators = num_predators
         self.stored_num_prey = num_prey
         # returns
-        return self.observe(), reward, done
+        return self.observe(agent), reward, done
 
     def get_position(self, agent):
         return self.agents_positions.get(agent, (None, None))
