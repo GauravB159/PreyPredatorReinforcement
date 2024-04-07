@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.distributions.categorical import Categorical
 from env.custom_environment import PreyPredatorEnv
+import pandas as pd
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -120,7 +122,7 @@ class Memory:
         del self.is_terminals[:]
 
 def train(load = False):
-    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode="human", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=7)
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=40, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=7)
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
     action_space_dim = env.action_space.n
 
@@ -132,18 +134,19 @@ def train(load = False):
 
     # Training hyperparameters
     max_episodes = 100000  # Adjust accordingly
-    max_timesteps = 300  # Adjust accordingly
+    max_timesteps = 600  # Adjust accordingly
     update_timestep = 3000  # Update policy every n timesteps
     logging_interval = 200  # Log avg reward after interval
     save_interval = 5000
     timestep_count = 0
     rewards = []
     avg_length = 0
-
+    logs = []
     # Main training loop
     for episode in range(1, max_episodes+1):
         env.reset()
         state = env.initial_obs.reshape(-1)
+        ep_reward = 0
         for t in range(max_timesteps):
             timestep_count += 1
             
@@ -165,21 +168,29 @@ def train(load = False):
                 break
             
             state = state.reshape(-1)
-            rewards.append(reward)
+            ep_reward += reward
             env.render()
             if done:
                 break
-
+        rewards.append(ep_reward)
         avg_length += t
 
         # Logging
         if episode % save_interval == 0:
             ppo.save_model("ppo_agent.pth")
-            
+        # print(f'Episode {episode} \t Reward: {ep_reward:.2f}')
         if episode % logging_interval == 0:
             avg_length = int(avg_length/logging_interval)
             avg_reward = sum(rewards)/len(rewards)
-            print(f'Episode {episode} \t Avg length: {avg_length} \t Avg reward: {avg_reward:.2f}')
+            log = {
+                "Episode": episode,
+                "Avg length": avg_length, 
+                "Avg reward": avg_reward
+            }
+            print(log)
+            print()
+            logs.append(log)
+            pd.DataFrame(logs).to_csv("ppo_log.csv", index=None)
             rewards = []
             avg_length = 0
     
