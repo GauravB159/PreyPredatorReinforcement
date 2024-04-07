@@ -10,7 +10,7 @@ def test():
     # Initialize PPO agent
     ppo = PPO(observation_space_dim, action_space_dim)
     ppo.load_model("ppo_agent.pth")
-
+    ppo.policy.eval()
     # Training hyperparameters
     max_episodes = 100  # Adjust accordingly
     max_timesteps = 600  # Adjust accordingly
