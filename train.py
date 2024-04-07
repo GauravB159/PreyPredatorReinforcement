@@ -2,30 +2,31 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-import random
 from collections import deque
 from env.custom_environment import PreyPredatorEnv
 import pygame
 import random
-from collections import deque
-import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class DQN(nn.Module):
     def __init__(self, input_shape, action_size):
         super(DQN, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=input_shape[0], out_channels=16, kernel_size=3, stride=1, padding=1)
+        self.bn1 = nn.BatchNorm2d(16)
         self.relu = nn.ReLU()
         self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)
+        self.bn2 = nn.BatchNorm2d(32)
         self.fc1 = nn.Linear(32 * input_shape[1] * input_shape[2], 32)  # Adjust for output size of conv2
+        self.dropout = nn.Dropout(0.5)
         self.fc2 = nn.Linear(32, action_size)
     
     def forward(self, x):
-        x = self.relu(self.conv1(x))
-        x = self.relu(self.conv2(x))
+        x = self.relu(self.bn1(self.conv1(x)))
+        x = self.relu(self.bn2(self.conv2(x)))
         x = x.view(x.size(0), -1)  # Flatten
-        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc1(self.dropout(x)))
         return self.fc2(x)
 
     
@@ -67,13 +68,26 @@ class PrioritizedReplayBuffer:
 
     def __len__(self):
         return len(self.buffer)
+    
+class ReplayBuffer:
+    def __init__(self, capacity):
+        self.buffer = deque(maxlen=capacity)
+
+    def push(self, state, action, reward, next_state, done):
+        self.buffer.append((state, action, reward, next_state, done))
+
+    def sample(self, batch_size):
+        return random.sample(self.buffer, batch_size)
+
+    def __len__(self):
+        return len(self.buffer)
 
 
 class DQNAgent:
     def __init__(self, input_shape = 24, action_size = 5, mode = 'train', epsilon_decay = 0.995, history_length = 5):
         self.input_shape = input_shape
         self.action_size = action_size
-        self.memory = PrioritizedReplayBuffer(1000000, alpha=0.6)  # Initialize prioritized replay buffer
+        self.memory = ReplayBuffer(10000000)
         self.beta_start = 0.4  # Start value of beta
         self.beta_increment_per_sampling = 0.001
         self.beta = self.beta_start
@@ -124,7 +138,7 @@ class DQNAgent:
     def replay(self, batch_size):
         if len(self.memory) < batch_size:
             return
-        minibatch, weights, indices = self.memory.sample(batch_size, beta=self.beta)
+        minibatch = self.memory.sample(batch_size)
         # Extract information from the minibatch
         states = torch.FloatTensor(np.array([s[0] for s in minibatch])).to(device)
         actions = torch.LongTensor(np.array([s[1] for s in minibatch])).unsqueeze(1).to(device)
@@ -142,22 +156,19 @@ class DQNAgent:
 
         # Compute loss
         loss = nn.MSELoss()(current_q_values, target_q_values)
-        loss = (torch.FloatTensor(weights).to(device) * loss).mean()
         # Optimize the model
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        with torch.no_grad():
-            new_priorities = torch.abs(current_q_values - target_q_values).cpu().numpy()
-            new_priorities += 1e-5  # Avoid zero priority
-        self.memory.update_priorities(indices, new_priorities)
+
         # Update epsilon
         self.update_epsilon()
         
 def test_dqn(env, agent, episodes=10):
     """Test the DQN agent over a specified number of episodes."""
+    agent.model.eval()
     total_reward = 0
-    for episode in range(episodes):
+    for episode in tqdm(range(episodes)):
         env.reset()
         state = env.initial_obs
         episode_reward = 0
@@ -172,6 +183,7 @@ def test_dqn(env, agent, episodes=10):
         total_reward += episode_reward
     avg_reward = total_reward / episodes
     print(f"Test Episodes: {episodes}, Average Reward: {avg_reward}")
+    agent.model.train()
     return avg_reward
     
 def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, target_update_freq = 100, load_saved = False):
@@ -187,6 +199,7 @@ def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, targ
     log = []
     batch_size = 32
     ep_avg = 0
+    count = 0
     for e in range(episodes):
         env.reset()
         # Example state initialization; adjust according to your environment's observation space
@@ -217,9 +230,11 @@ def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, targ
                 break
             env.render()
         reward = env.get_average_rewards()
+        count += 1
         ep_avg += reward
-        print(f"{e + 1}/{episodes} done! Reward: {reward}")
+        print(f"{e + 1}/{episodes} done! Reward: {reward} Running Average: {ep_avg / count}")
         if (e + 1) % avg_length == 0:
+            count = 0
             test_avg = test_dqn(env, prey_agent, episodes=avg_length)
             predator_agent.save('predator.pth')
             prey_agent.save('prey.pth')
@@ -239,5 +254,5 @@ def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, targ
             ep_avg = 0
 
 if __name__ == '__main__':
-    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=30, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
-    train_dqn(env, epsilon_decay=0.99999, episodes=20000, avg_length=100, target_update_freq=50, load_saved=False)
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=20, max_steps_per_episode=100000, food_probability=1, max_food_count = 1, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40)
+    train_dqn(env, epsilon_decay=0.99999, episodes=20000, avg_length=100, target_update_freq=25, load_saved=False)
