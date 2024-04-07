@@ -122,7 +122,7 @@ class Memory:
         del self.is_terminals[:]
 
 def run(load = False, test = False, render_mode = "non"):
-    env = PreyPredatorEnv(num_prey=1, num_predators=1, grid_size=5, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode=render_mode, prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=1, padding = 2)
+    env = PreyPredatorEnv(num_prey=5, num_predators=1, grid_size=30, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode=render_mode, prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=5, padding = 2)
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
     action_space_dim = env.action_space.n
 
@@ -164,8 +164,10 @@ def run(load = False, test = False, render_mode = "non"):
             while agents_moved < agent_count:
                 if env.render_mode == 'human':
                     event = pygame.event.get()
-                agents_moved += 1
                 current_agent = env.agent_selection
+                agents_moved += 1
+                if env.terminations[current_agent]:
+                    continue
                 agent_x, agent_y = env.agents_positions[current_agent] 
                 env_state[0, agent_x, agent_y] = 1
                 env_state = env_state.reshape(-1)
