@@ -3,7 +3,7 @@ from ppo_train import PPO
 import pygame
 
 def test():
-    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=25, max_steps_per_episode=100000, food_probability=1, max_food_count = 1, render_mode="human", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=7)
+    env = PreyPredatorEnv(num_prey=3, num_predators=0, grid_size=40, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode="human", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=20, padding=20)
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
     action_space_dim = env.action_space.n
 
@@ -13,7 +13,7 @@ def test():
 
     # Training hyperparameters
     max_episodes = 100  # Adjust accordingly
-    max_timesteps = 100  # Adjust accordingly
+    max_timesteps = 600  # Adjust accordingly
     logging_interval = 1  # Log avg reward after interval
     timestep_count = 0
     rewards = []

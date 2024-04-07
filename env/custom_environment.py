@@ -10,7 +10,7 @@ import random
 class PreyPredatorEnv(AECEnv):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01, max_food_count = 5, std_dev=2):
+    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01, max_food_count = 5, std_dev=2, padding = 0):
         super().__init__()
         self.observation_history_length = observation_history_length
         self.prey_split_probability = prey_split_probability
@@ -20,7 +20,7 @@ class PreyPredatorEnv(AECEnv):
         self.max_food_count = max_food_count
         self.current_food_count = 0
         self.grid_size = grid_size
-        self.padding = 0
+        self.padding = padding
         self.initial_energy = initial_energy
         self.reproduction_energy = reproduction_energy
         self.stored_num_predators = -1
@@ -409,7 +409,7 @@ class PreyPredatorEnv(AECEnv):
 
 
         pygame.display.flip()
-        self.clock.tick(24)  # Control the frame rate
+        self.clock.tick(60)  # Control the frame rate
 
     def close(self):
         # If your environment opens files or creates network connections, clean them up here
