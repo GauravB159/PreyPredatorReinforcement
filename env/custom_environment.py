@@ -194,7 +194,7 @@ class PreyPredatorEnv(AECEnv):
                 elif action == 4:  # Move right
                     self.agents_positions[agent] = (self.agents_positions[agent][0], min(self.agents_positions[agent][1] + 1, self.grid_size - 1))
                 # Example energy consumption for moving
-                self.agents_energy[agent] -= 4 # Deduct energy for taking a step
+                self.agents_energy[agent] -= 5 # Deduct energy for taking a step
                 
                 # Example interaction: Predation or eating
                 # You'll need to implement logic to check for such interactions based on positions and agent types
@@ -284,7 +284,7 @@ class PreyPredatorEnv(AECEnv):
         reward = 0  # Survival reward for taking a step.
         current_energy = self.agents_energy[agent]
         if achievement == "Prey ate food":
-            reward += 10
+            reward += 50
         # Penalty if energy is critically low, encouraging finding food/prey.
         if current_energy < 20:
             reward -= 0.5
