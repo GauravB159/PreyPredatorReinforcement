@@ -122,7 +122,7 @@ class Memory:
         del self.is_terminals[:]
 
 def run(load = False, test = False, render_mode = "non"):
-    env = PreyPredatorEnv(num_prey=5, num_predators=1, grid_size=25, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode=render_mode, prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=6, padding = 2)
+    env = PreyPredatorEnv(num_prey=1, num_predators=1, grid_size=5, max_steps_per_episode=100000, food_probability=1, max_food_count = 5, render_mode=render_mode, prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=1, padding = 2)
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
     action_space_dim = env.action_space.n
 
@@ -152,8 +152,7 @@ def run(load = False, test = False, render_mode = "non"):
     # Adjust training loop to handle both prey and predator
     for episode in range(1, max_episodes+1):
         env.reset()
-        prey_state = env.initial_obs.reshape(-1)
-        predator_state = env.initial_obs.reshape(-1)
+        env_state = env.initial_obs
         ep_predator_reward = 0
         ep_prey_reward = 0
         for t in range(max_timesteps):
@@ -167,24 +166,25 @@ def run(load = False, test = False, render_mode = "non"):
                     event = pygame.event.get()
                 agents_moved += 1
                 current_agent = env.agent_selection
+                agent_x, agent_y = env.agents_positions[current_agent] 
+                env_state[0, agent_x, agent_y] = 1
+                env_state = env_state.reshape(-1)
                 if 'prey' in current_agent:
-                    action = prey_ppo.select_action(prey_state, prey_memory)
+                    action = prey_ppo.select_action(env_state, prey_memory)
                 else:
-                    action = predator_ppo.select_action(predator_state, predator_memory)
+                    action = predator_ppo.select_action(env_state, predator_memory)
 
                 # Step the environment
                 next_state, reward, done = env.step(action)
-
+                env_state = next_state
                 # Update memories
                 if 'prey' in current_agent:
                     prey_memory.rewards.append(reward)
                     prey_memory.is_terminals.append(done)
-                    prey_state = next_state
                     ep_prey_reward += reward
                 else:
                     predator_memory.rewards.append(reward)
                     predator_memory.is_terminals.append(done)
-                    predator_state = next_state
                     ep_predator_reward += reward
 
             # Update agents if it's time
