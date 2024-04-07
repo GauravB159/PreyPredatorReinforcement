@@ -321,7 +321,7 @@ class PreyPredatorEnv(AECEnv):
         color = (229, 48, 48) # Red for predator
         if not cell_size:
             cell_size = self.cell_size
-        pygame.draw.circle(self.screen, color, center=(pos[0]*cell_size - cell_size / 2, pos[1]*cell_size - cell_size / 2), radius=cell_size / 2)
+        pygame.draw.circle(self.screen, color, center=(pos[0]*cell_size + cell_size // 2, pos[1]*cell_size + cell_size // 2), radius= + cell_size // 2)
         
     def draw_prey(self, pos, cell_size = None):
         color = (255, 189, 29)  # Yellow for prey
