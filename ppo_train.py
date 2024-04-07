@@ -120,7 +120,7 @@ class Memory:
         del self.is_terminals[:]
 
 def train(load = False):
-    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=8, max_steps_per_episode=100000, food_probability=1, max_food_count = 1, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=0.5)
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=25, max_steps_per_episode=100000, food_probability=1, max_food_count = 1, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=8)
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
     action_space_dim = env.action_space.n
 
@@ -132,10 +132,10 @@ def train(load = False):
 
     # Training hyperparameters
     max_episodes = 100000  # Adjust accordingly
-    max_timesteps = 100  # Adjust accordingly
+    max_timesteps = 300  # Adjust accordingly
     update_timestep = 3000  # Update policy every n timesteps
     logging_interval = 200  # Log avg reward after interval
-    save_interval = 50000
+    save_interval = 5000
     timestep_count = 0
     rewards = []
     avg_length = 0

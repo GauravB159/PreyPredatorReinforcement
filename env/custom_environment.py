@@ -182,6 +182,7 @@ class PreyPredatorEnv(AECEnv):
                     # Agent consumes food
                     # print(f"{self.agent_selection} has consumed food")
                     achievement = "Prey ate food"
+                    self.current_food_count -= 1
                     self.agents_energy[self.agent_selection] += self.food_energy_gain
                     self.food_positions.remove(self.agents_positions[self.agent_selection])
                 # Example movement action implementation
