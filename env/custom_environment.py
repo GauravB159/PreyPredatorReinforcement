@@ -29,7 +29,6 @@ class PreyPredatorEnv(AECEnv):
         self.max_steps_per_episode = max_steps_per_episode
         self.max_detection_range = self.grid_size  # Maximum range a ray can detect
         self.no_detection_value = self.max_detection_range + 1  # Value for no detection in a direction
-        self.energy_gain_from_eating = 100
         self.std_dev = std_dev
         self.observation_size = 2 * self.grid_size
         # Define action and observation space
@@ -215,7 +214,7 @@ class PreyPredatorEnv(AECEnv):
                             self.terminations[prey_agent] = True
                             self.agents_energy[prey_agent] = 0
                             # Optionally, update predator state (e.g., increase energy, contribute to reproduction counter)
-                            self.agents_energy[self.agent_selection] += self.energy_gain_from_eating
+                            self.agents_energy[self.agent_selection] += self.food_energy_gain
                             
                             # If a predator can only eat once per turn, break here
                             break
@@ -239,7 +238,7 @@ class PreyPredatorEnv(AECEnv):
         if 'prey' in agent and np.random.rand() < self.prey_split_probability and self.agents_energy[agent] > 70:  # 10% chance for prey to split
             self.add_agent("prey")
         elif 'predator' in agent and self.predator_prey_eaten[agent] >= 5:  # Predator splits after eating 5 prey
-            self.add_agent("predator")
+            # self.add_agent("predator")
             self.predator_prey_eaten[agent] = 0
         self.agent_selection = self._agent_selector.next()
         
@@ -337,7 +336,7 @@ class PreyPredatorEnv(AECEnv):
         color = (229, 48, 48) # Red for predator
         if not cell_size:
             cell_size = self.cell_size
-        pygame.draw.circle(self.screen, color, center=(pos[0]*cell_size - cell_size / 2, pos[1]*cell_size - cell_size / 2), radius=cell_size / 2)
+        pygame.draw.circle(self.screen, color, center=(pos[0]*cell_size + cell_size / 2, pos[1]*cell_size + cell_size / 2), radius=cell_size / 2)
         
     def draw_prey(self, pos, cell_size = None):
         color = (255, 189, 29)  # Yellow for prey
@@ -410,7 +409,7 @@ class PreyPredatorEnv(AECEnv):
 
 
         pygame.display.flip()
-        self.clock.tick(60)  # Control the frame rate
+        self.clock.tick(10)  # Control the frame rate
 
     def close(self):
         # If your environment opens files or creates network connections, clean them up here
