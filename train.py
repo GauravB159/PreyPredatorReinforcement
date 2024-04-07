@@ -197,7 +197,7 @@ def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, targ
         prey_agent = DQNAgent(input_shape, action_size, epsilon_decay = epsilon_decay, history_length=env.observation_history_length)
         predator_agent = DQNAgent(input_shape, action_size, epsilon_decay = epsilon_decay, history_length=env.observation_history_length)
     log = []
-    batch_size = 32
+    batch_size = 16
     ep_avg = 0
     count = 0
     for e in range(episodes):
@@ -254,5 +254,5 @@ def train_dqn(env, episodes = 1000, epsilon_decay = 0.995, avg_length = 10, targ
             ep_avg = 0
 
 if __name__ == '__main__':
-    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=8, max_steps_per_episode=100000, food_probability=1, max_food_count = 1, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=0.5)
-    train_dqn(env, epsilon_decay=0.99999, episodes=200000, avg_length=1000, target_update_freq=250, load_saved=False)
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=10, max_steps_per_episode=100000, food_probability=1, max_food_count = 1, render_mode="non", prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=0.6)
+    train_dqn(env, epsilon_decay=0.99999, episodes=20000, avg_length=1000, target_update_freq=250, load_saved=False)
