@@ -179,7 +179,7 @@ class PreyPredatorEnv(AECEnv):
                 elif action == 4:  # Move right
                     self.agents_positions[agent] = (self.agents_positions[agent][0], min(self.agents_positions[agent][1] + 1, self.grid_size - 1))
                 # Example energy consumption for moving
-                self.agents_energy[agent] -= 1 # Deduct energy for taking a step
+                self.agents_energy[agent] -= (1 if 'prey' in agent else 0.25) # Deduct energy for taking a step
                 
                 # Example interaction: Predation or eating
                 # You'll need to implement logic to check for such interactions based on positions and agent types
@@ -222,7 +222,7 @@ class PreyPredatorEnv(AECEnv):
         # Proceed to next agent
         if 'prey' in agent and np.random.rand() < self.prey_split_probability and self.agents_energy[agent] > 120:  # 10% chance for prey to split
             self.add_agent("prey")
-        elif 'predator' in agent and self.predator_prey_eaten[agent] >= 5:  # Predator splits after eating 5 prey
+        elif 'predator' in agent and self.predator_prey_eaten[agent] >= 2:  # Predator splits after eating 5 prey
             self.add_agent("predator")
             self.predator_prey_eaten[agent] = 0
         self.agent_selection = self._agent_selector.next()
@@ -376,7 +376,7 @@ class PreyPredatorEnv(AECEnv):
             self.average_predator_energy_text = self.myfont.render(f'Predator Energy: {sum(predator_energy) / len(predator_energy):.2f}', True, (0, 0, 0))
             predator_energy_text_pos = self.screen.get_width() - self.average_predator_energy_text.get_width() - 10
             predator_text_pos = self.screen.get_width() - self.predator_text.get_width() - 10
-            self.draw_predator(((predator_text_pos - 20) / icon_size, 48 / icon_size), icon_size)
+            self.draw_predator(((predator_text_pos - 20) / icon_size, 40 / icon_size), icon_size)
             self.screen.blit(self.predator_text, (predator_text_pos, 40))
             self.screen.blit(self.average_predator_energy_text, (predator_energy_text_pos, 130))
 
