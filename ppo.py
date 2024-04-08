@@ -122,7 +122,7 @@ class Memory:
         del self.is_terminals[:]
 
 def run(load = False, test = False, render_mode = "non"):
-    env = PreyPredatorEnv(num_prey=10, num_predators=1, grid_size=40, max_steps_per_episode=100000, food_probability=1, max_food_count = 25, render_mode=render_mode, prey_split_probability=0, observation_history_length=10, food_energy_gain = 40, std_dev=10, padding = 5)
+    env = PreyPredatorEnv(num_prey=10, num_predators=2, grid_size=40, max_steps_per_episode=100000, food_probability=0.4, max_food_count = 25, render_mode=render_mode, prey_split_probability=0.02, observation_history_length=10, food_energy_gain = 100, std_dev=10, padding = 10)
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
     action_space_dim = env.action_space.n
 
@@ -139,7 +139,7 @@ def run(load = False, test = False, render_mode = "non"):
     
     # Training hyperparameters
     max_episodes = 100000  # Adjust accordingly
-    max_timesteps = 600  # Adjust accordingly
+    max_timesteps = 1000  # Adjust accordingly
     update_timestep = 3000  # Update policy every n timesteps
     logging_interval = 20  # Log avg reward after interval
     save_interval = 500
@@ -155,6 +155,8 @@ def run(load = False, test = False, render_mode = "non"):
         env_state = env.initial_obs
         ep_predator_reward = 0
         ep_prey_reward = 0
+        prey_reward_count = 0
+        predator_reward_count = 0
         for t in range(max_timesteps):
             avg_length += 1
             timestep_count += 1
@@ -184,10 +186,12 @@ def run(load = False, test = False, render_mode = "non"):
                 if 'prey' in current_agent:
                     prey_memory.rewards.append(reward)
                     prey_memory.is_terminals.append(done)
+                    prey_reward_count += 1
                     ep_prey_reward += reward
                 else:
                     predator_memory.rewards.append(reward)
                     predator_memory.is_terminals.append(done)
+                    predator_reward_count += 1
                     ep_predator_reward += reward
 
             # Update agents if it's time
@@ -200,7 +204,8 @@ def run(load = False, test = False, render_mode = "non"):
             env.render()
             if env.stored_num_prey == 0:
                 break
-        
+        ep_prey_reward /= prey_reward_count
+        ep_predator_reward /= predator_reward_count
         prey_rewards.append(ep_prey_reward)
         predator_rewards.append(ep_predator_reward)
         

@@ -220,7 +220,7 @@ class PreyPredatorEnv(AECEnv):
                 self.terminations[agent] = True  # Mark done as well when truncating
 
         # Proceed to next agent
-        if 'prey' in agent and np.random.rand() < self.prey_split_probability and self.agents_energy[agent] > 70:  # 10% chance for prey to split
+        if 'prey' in agent and np.random.rand() < self.prey_split_probability and self.agents_energy[agent] > 120:  # 10% chance for prey to split
             self.add_agent("prey")
         elif 'predator' in agent and self.predator_prey_eaten[agent] >= 5:  # Predator splits after eating 5 prey
             self.add_agent("predator")
@@ -270,7 +270,7 @@ class PreyPredatorEnv(AECEnv):
         reward = 0  # Survival reward for taking a step.
         current_energy = self.agents_energy[agent]
         if achievement == "Prey ate food" or achievement == "Predator ate prey":
-            reward += 50
+            reward += 2
             
         if current_energy < 20:
             reward -= 0.5
@@ -279,7 +279,7 @@ class PreyPredatorEnv(AECEnv):
 
         # Significant penalty for death to emphasize survival.
         if not self.agents_alive[agent]:
-            reward -= 50
+            reward -= 10
 
         return reward
 
