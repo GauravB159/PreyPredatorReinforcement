@@ -122,18 +122,18 @@ class Memory:
         del self.is_terminals[:]
 
 def run(load = False, test = False, render_mode = "non"):
-    env = PreyPredatorEnv(num_prey=10, num_predators=3, grid_size=50, max_steps_per_episode=100000, food_probability=0.8, max_food_count = 20, render_mode=render_mode, prey_split_probability=0.01, observation_history_length=10, food_energy_gain = 40, generator_params = {
+    env = PreyPredatorEnv(num_prey=2, num_predators=1, grid_size=20, max_steps_per_episode=100000, food_probability=0.8, max_food_count = 5, render_mode=render_mode, prey_split_probability=0.01, observation_history_length=10, food_energy_gain = 40, generator_params = {
         "prey": {
-            "std_dev": 8, 
-            "padding":5
+            "std_dev":5, 
+            "padding":3
         },
         "predator": {
-            "std_dev": 8, 
-            "padding":5
+            "std_dev":5, 
+            "padding":3
         },
         "food": {
-            "std_dev": 10, 
-            "padding":6
+            "std_dev": 5, 
+            "padding":3
         }
     })
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
@@ -152,7 +152,7 @@ def run(load = False, test = False, render_mode = "non"):
     
     # Training hyperparameters
     max_episodes = 100000  # Adjust accordingly
-    max_timesteps = 1000  # Adjust accordingly
+    max_timesteps = 500  # Adjust accordingly
     update_timestep = 3000  # Update policy every n timesteps
     logging_interval = 100  # Log avg reward after interval
     save_interval = 200

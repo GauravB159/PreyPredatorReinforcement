@@ -205,8 +205,6 @@ class PreyPredatorEnv(AECEnv):
                 # Check for reproduction or death conditions
                 # E.g., split or remove agents based on energy levels or other conditions
             # Update reward for the action taken
-            reward = self.calculate_reward(agent, action, achievement)  # You'll need to implement this based on your game's rules
-            self._cumulative_rewards[agent] += reward
 
             # Example condition to check if the agent's episode is done
             if self.agents_energy[agent] <= 0:
@@ -224,6 +222,8 @@ class PreyPredatorEnv(AECEnv):
         elif 'predator' in agent and self.predator_prey_eaten[agent] >= 2:  # Predator splits after eating 5 prey
             self.add_agent("predator")
             self.predator_prey_eaten[agent] = 0
+        reward = self.calculate_reward(agent, action, achievement)  # You'll need to implement this based on your game's rules
+        self._cumulative_rewards[agent] += reward
         self.agent_selection = self._agent_selector.next()
         
         num_prey = sum('prey' in agent for agent in self.agents_positions.keys())
