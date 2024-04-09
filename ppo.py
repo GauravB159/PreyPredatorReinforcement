@@ -122,18 +122,18 @@ class Memory:
         del self.is_terminals[:]
 
 def run(load = False, test = False, render_mode = "non"):
-    env = PreyPredatorEnv(num_prey=20, num_predators=3, grid_size=50, max_steps_per_episode=100000, food_probability=0.8, max_food_count = 40, render_mode=render_mode, prey_split_probability=0.04, observation_history_length=10, food_energy_gain = 40, generator_params = {
+    env = PreyPredatorEnv(num_prey=4, num_predators=1, grid_size=20, max_steps_per_episode=100000, food_probability=0.8, max_food_count = 40, render_mode=render_mode, prey_split_probability=0.04, observation_history_length=10, food_energy_gain = 40, generator_params = {
         "prey": {
-            "std_dev": 5, 
-            "padding":3
+            "std_dev": 2, 
+            "padding":1
         },
         "predator": {
-            "std_dev": 5, 
-            "padding":3
+            "std_dev": 2, 
+            "padding":1
         },
         "food": {
-            "std_dev": 7, 
-            "padding":4
+            "std_dev": 3, 
+            "padding":1
         }
     })
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
@@ -254,7 +254,7 @@ def run(load = False, test = False, render_mode = "non"):
             prey_rewards = []
             predator_rewards = []
             avg_prey_rewards = []
-            avg_predator_rewards
+            avg_predator_rewards = []
             avg_length = 0
     
     env.close()
