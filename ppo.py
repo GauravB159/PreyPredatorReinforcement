@@ -184,10 +184,10 @@ def run(load = False, test = False, render_mode = "non"):
                 if env.render_mode == 'human':
                     event = pygame.event.get()
                 current_agent = env.agent_selection
-                agents_moved += 1
                 if env.terminations[current_agent]:
                     env.agent_selection = env._agent_selector.next()
                     continue
+                agents_moved += 1
                 agent_x, agent_y = env.agents_positions[current_agent] 
                 env_state[0, agent_x, agent_y] = 1
                 env_state = env_state.reshape(-1)
