@@ -122,7 +122,7 @@ class Memory:
         del self.is_terminals[:]
 
 def run(load = False, test = False, render_mode = "non"):
-    env = PreyPredatorEnv(num_prey=2, num_predators=1, grid_size=20, max_steps_per_episode=100000, food_probability=0.8, max_food_count = 5, render_mode=render_mode, prey_split_probability=0.01, observation_history_length=10, food_energy_gain = 40, generator_params = {
+    env = PreyPredatorEnv(num_prey=2, num_predators=1, grid_size=30, max_steps_per_episode=100000, food_probability=0.8, max_food_count = 8, render_mode=render_mode, prey_split_probability=0.02, observation_history_length=10, food_energy_gain = 40, generator_params = {
         "prey": {
             "std_dev":5, 
             "padding":3
