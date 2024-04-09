@@ -124,16 +124,16 @@ class Memory:
 def run(load = False, test = False, render_mode = "non"):
     env = PreyPredatorEnv(num_prey=20, num_predators=3, grid_size=50, max_steps_per_episode=100000, food_probability=0.8, max_food_count = 40, render_mode=render_mode, prey_split_probability=0.04, observation_history_length=10, food_energy_gain = 40, generator_params = {
         "prey": {
-            "std_dev": 4, 
+            "std_dev": 5, 
             "padding":3
         },
         "predator": {
-            "std_dev": 4, 
+            "std_dev": 5, 
             "padding":3
         },
         "food": {
-            "std_dev": 6, 
-            "padding":3
+            "std_dev": 7, 
+            "padding":4
         }
     })
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
@@ -159,6 +159,8 @@ def run(load = False, test = False, render_mode = "non"):
     timestep_count = 0
     prey_rewards = []
     predator_rewards = []
+    avg_prey_rewards = []
+    avg_predator_rewards = []
     avg_length = 0
     logs = []
     
@@ -170,8 +172,10 @@ def run(load = False, test = False, render_mode = "non"):
         ep_prey_reward = 0
         prey_reward_count = 0
         predator_reward_count = 0
+        ep_length = 0
         for t in range(max_timesteps):
             avg_length += 1
+            ep_length += 1
             timestep_count += 1
             # Select and perform actions for both prey and predator
             agent_count = env.stored_num_predators + env.stored_num_prey
@@ -217,24 +221,30 @@ def run(load = False, test = False, render_mode = "non"):
             env.render()
             if env.stored_num_prey == 0:
                 break
-        ep_prey_reward /= prey_reward_count
-        ep_predator_reward /= predator_reward_count
+        avg_ep_prey_reward = ep_prey_reward / prey_reward_count
+        avg_ep_predator_reward = ep_predator_reward / predator_reward_count
         prey_rewards.append(ep_prey_reward)
         predator_rewards.append(ep_predator_reward)
+        avg_prey_rewards.append(avg_ep_prey_reward)
+        avg_predator_rewards.append(avg_ep_predator_reward)
         
         # Save models periodically
         if not test and episode % save_interval == 0:
             prey_ppo.save_model("prey_ppo_agent.pth")
             predator_ppo.save_model("predator_ppo_agent.pth")
-        print(f'Episode {episode} \t Prey Reward: {ep_prey_reward:.2f} \t Predator Reward: {ep_predator_reward:.2f}')
+        print(f'Episode {episode}\tEpisode Length: {ep_length}\tPrey Reward: {ep_prey_reward:.2f}\tPredator Reward: {ep_predator_reward:.2f}')
         if not test and episode % logging_interval == 0:
             avg_length = int(avg_length/logging_interval)
-            avg_prey_reward = sum(prey_rewards)/len(prey_rewards)
-            avg_predator_reward = sum(predator_rewards)/len(predator_rewards)
+            avg_prey_reward = sum(avg_prey_rewards)/len(prey_rewards)
+            avg_predator_reward = sum(avg_predator_rewards)/len(predator_rewards)
+            prey_reward = sum(prey_rewards)/len(prey_rewards)
+            predator_reward = sum(predator_rewards)/len(predator_rewards)
             log = {
                 "Episode": episode,
                 "Avg length": avg_length, 
+                "Total prey reward": prey_reward,
                 "Avg prey reward": avg_prey_reward,
+                "Total predator reward": predator_reward,
                 "Avg predator reward": avg_predator_reward
             }
             print(log)
@@ -243,6 +253,8 @@ def run(load = False, test = False, render_mode = "non"):
             pd.DataFrame(logs).to_csv("ppo_log.csv", index=None)
             prey_rewards = []
             predator_rewards = []
+            avg_prey_rewards = []
+            avg_predator_rewards
             avg_length = 0
     
     env.close()
