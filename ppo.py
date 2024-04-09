@@ -122,18 +122,18 @@ class Memory:
         del self.is_terminals[:]
 
 def run(load = False, test = False, render_mode = "non"):
-    env = PreyPredatorEnv(num_prey=5, num_predators=2, grid_size=30, max_steps_per_episode=100000, food_probability=1, max_food_count = 25, render_mode=render_mode, prey_split_probability=0.02, food_energy_gain = 30, generator_params = {
+    env = PreyPredatorEnv(num_prey=5, num_predators=2, grid_size=30, max_steps_per_episode=100000, food_probability=1, max_food_count = 15, render_mode=render_mode, prey_split_probability=0.02, food_energy_gain = 30, generator_params = {
         "prey": {
-            "std_dev": 5, 
+            "std_dev": 3, 
             "padding":3
         },
         "predator": {
-            "std_dev": 5, 
+            "std_dev": 3, 
             "padding":3
         },
         "food": {
-            "std_dev": 5, 
-            "padding":6
+            "std_dev": 4, 
+            "padding":4
         }
     })
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
@@ -164,7 +164,7 @@ def run(load = False, test = False, render_mode = "non"):
     avg_predator_rewards = []
     avg_length = 0
     logs = []
-    currently_training = "prey"
+    currently_training = "predator"
     # Adjust training loop to handle both prey and predator
     for episode in range(1, max_episodes+1):
         env.reset()
@@ -174,8 +174,13 @@ def run(load = False, test = False, render_mode = "non"):
         prey_reward_count = 0
         predator_reward_count = 0
         ep_length = 0
-        if episode % switch_train_episodes:
-            currently_training = "prey" if currently_training == "predator" else "prey"
+        if episode % switch_train_episodes == 0:
+            print(f"Currently training: {currently_training}")
+            currently_training = "prey" if currently_training == "predator" else "predator"
+            print(f"Now switching to: {currently_training}")
+            timestep_count = 0
+            prey_memory.clear_memory()
+            predator_memory.clear_memory()
         for t in range(max_timesteps):
             avg_length += 1
             ep_length += 1
