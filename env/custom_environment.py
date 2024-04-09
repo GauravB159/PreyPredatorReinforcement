@@ -10,7 +10,7 @@ import random
 class PreyPredatorEnv(AECEnv):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01, max_food_count = 5, std_dev=2, padding = 0):
+    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01, max_food_count = 5, generator_params = {}):
         super().__init__()
         self.observation_history_length = observation_history_length
         self.prey_split_probability = prey_split_probability
@@ -20,7 +20,6 @@ class PreyPredatorEnv(AECEnv):
         self.max_food_count = max_food_count
         self.current_food_count = 0
         self.grid_size = grid_size
-        self.padding = padding
         self.initial_energy = initial_energy
         self.reproduction_energy = reproduction_energy
         self.stored_num_predators = -1
@@ -30,7 +29,7 @@ class PreyPredatorEnv(AECEnv):
         self.max_detection_range = self.grid_size  # Maximum range a ray can detect
         self.no_detection_value = self.max_detection_range + 1  # Value for no detection in a direction
         self.energy_gain_from_eating = 100
-        self.std_dev = std_dev
+        self.generator_params = generator_params
         # Define action and observation space
         self.action_space = spaces.Discrete(5) # Example: 0 = stay, 1-4 = move in directions
         self.observation_space = spaces.Box(low=0, high=1, shape=(4, self.grid_size, self.grid_size), dtype=int)
@@ -47,10 +46,10 @@ class PreyPredatorEnv(AECEnv):
         self.food_energy_gain = food_energy_gain
         self.food_positions = []
     
-    def normal_position(self, mean_position):
+    def normal_position(self, mean_position, generator_params):
         x, y = mean_position
-        new_x = np.clip(np.random.normal(x, self.std_dev), 0, self.grid_size - 1)
-        new_y = np.clip(np.random.normal(y, self.std_dev), 0, self.grid_size - 1)
+        new_x = np.clip(np.random.normal(x, generator_params["std_dev"]), 0, self.grid_size - 1)
+        new_y = np.clip(np.random.normal(y, generator_params["std_dev"]), 0, self.grid_size - 1)
         return int(new_x), int(new_y)
 
     def observe_old(self, agent):
@@ -81,7 +80,7 @@ class PreyPredatorEnv(AECEnv):
             mean_position = self.generator_coords_predator
         # Use normal_position for the new position if none is provided
         if position is None:
-            position = self.normal_position(mean_position)
+            position = self.normal_position(mean_position, self.generator_params[agent_type])
         self.agents_positions[new_id] = position
         self.agents_energy[new_id] = self.initial_energy
         self.agents_alive[new_id] = True
@@ -119,15 +118,15 @@ class PreyPredatorEnv(AECEnv):
 
     def reset(self):
         # Reset or initialize agents' states
-        self.generator_coords_prey = (self.padding, self.padding)
-        self.generator_coords_predator = (self.padding, self.grid_size - self.padding - 1)
-        self.generator_coords_food = (self.grid_size - self.padding - 1, self.grid_size - self.padding - 1)
+        self.generator_coords_prey = (self.generator_params["prey"]["padding"], self.generator_params["prey"]["padding"])
+        self.generator_coords_predator = (self.generator_params["predator"]["padding"], self.grid_size - self.generator_params["predator"]["padding"] - 1)
+        self.generator_coords_food = (self.grid_size - self.generator_params["food"]["padding"] - 1, self.grid_size - self.generator_params["food"]["padding"] - 1)
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
         self.stored_num_predators = self.num_predators
         self.stored_num_prey = self.num_prey
         self.current_food_count = 0
-        self.agents_positions = {f"prey_{i}": self.normal_position(self.generator_coords_prey) for i in range(self.num_prey)}   
-        self.agents_positions.update({f"predator_{j}": self.normal_position(self.generator_coords_predator) for j in range(self.num_predators)})     
+        self.agents_positions = {f"prey_{i}": self.normal_position(self.generator_coords_prey, self.generator_params["prey"]) for i in range(self.num_prey)}   
+        self.agents_positions.update({f"predator_{j}": self.normal_position(self.generator_coords_predator, self.generator_params["predator"]) for j in range(self.num_predators)})     
         self.agents_energy = {agent: self.initial_energy for agent in self.agents}
         self.agents_alive = {agent: True for agent in self.agents}  # Track whether agents are alive
 
@@ -149,7 +148,7 @@ class PreyPredatorEnv(AECEnv):
         if random.random() < self.food_probability and self.current_food_count < self.max_food_count:
             self.current_food_count += 1
             # Add food at random positions, ensuring no duplicates
-            new_food_pos = self.normal_position(self.generator_coords_food)
+            new_food_pos = self.normal_position(self.generator_coords_food, self.generator_params["food"])
             if new_food_pos not in self.food_positions and new_food_pos not in self.agents_positions.values():
                 self.food_positions.append(new_food_pos)
 
