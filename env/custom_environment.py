@@ -28,7 +28,6 @@ class PreyPredatorEnv(AECEnv):
         self.max_steps_per_episode = max_steps_per_episode
         self.max_detection_range = self.grid_size  # Maximum range a ray can detect
         self.no_detection_value = self.max_detection_range + 1  # Value for no detection in a direction
-        self.energy_gain_from_eating = 100
         self.generator_params = generator_params
         # Define action and observation space
         self.action_space = spaces.Discrete(5) # Example: 0 = stay, 1-4 = move in directions
@@ -118,7 +117,7 @@ class PreyPredatorEnv(AECEnv):
 
     def reset(self):
         # Reset or initialize agents' states
-        self.generator_coords_prey = (self.generator_params["prey"]["padding"], self.generator_params["prey"]["padding"])
+        self.generator_coords_prey = (self.grid_size // 2 + self.generator_params["prey"]["padding"], self.generator_params["prey"]["padding"])
         self.generator_coords_predator = (self.generator_params["predator"]["padding"], self.grid_size - self.generator_params["predator"]["padding"] - 1)
         self.generator_coords_food = (self.grid_size - self.generator_params["food"]["padding"] - 1, self.grid_size - self.generator_params["food"]["padding"] - 1)
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
@@ -178,7 +177,7 @@ class PreyPredatorEnv(AECEnv):
                 elif action == 4:  # Move right
                     self.agents_positions[agent] = (self.agents_positions[agent][0], min(self.agents_positions[agent][1] + 1, self.grid_size - 1))
                 # Example energy consumption for moving
-                self.agents_energy[agent] -= (0.5 if 'prey' in agent else 0.25) # Deduct energy for taking a step
+                self.agents_energy[agent] -= 0.5 # Deduct energy for taking a step
                 
                 # Example interaction: Predation or eating
                 # You'll need to implement logic to check for such interactions based on positions and agent types
@@ -198,7 +197,7 @@ class PreyPredatorEnv(AECEnv):
                             self.terminations[prey_agent] = True
                             self.agents_energy[prey_agent] = 0
                             # Optionally, update predator state (e.g., increase energy, contribute to reproduction counter)
-                            self.agents_energy[self.agent_selection] += self.energy_gain_from_eating
+                            self.agents_energy[self.agent_selection] += self.food_energy_gain
                             
                             # If a predator can only eat once per turn, break here
                             break
