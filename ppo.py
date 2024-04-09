@@ -124,16 +124,16 @@ class Memory:
 def run(load = False, test = False, render_mode = "non"):
     env = PreyPredatorEnv(num_prey=20, num_predators=3, grid_size=50, max_steps_per_episode=100000, food_probability=0.8, max_food_count = 40, render_mode=render_mode, prey_split_probability=0.04, observation_history_length=10, food_energy_gain = 40, generator_params = {
         "prey": {
-            "std_dev": 6, 
-            "padding":6
+            "std_dev": 4, 
+            "padding":3
         },
         "predator": {
-            "std_dev": 6, 
-            "padding":6
+            "std_dev": 4, 
+            "padding":3
         },
         "food": {
-            "std_dev": 10, 
-            "padding":6
+            "std_dev": 6, 
+            "padding":3
         }
     })
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
