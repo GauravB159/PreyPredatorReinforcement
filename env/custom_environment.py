@@ -117,7 +117,7 @@ class PreyPredatorEnv(AECEnv):
 
     def reset(self):
         # Reset or initialize agents' states
-        self.generator_coords_prey = (self.grid_size // 2 + self.generator_params["prey"]["padding"], self.generator_params["prey"]["padding"])
+        self.generator_coords_prey = (self.generator_params["prey"]["padding"], self.generator_params["prey"]["padding"])
         self.generator_coords_predator = (self.generator_params["predator"]["padding"], self.grid_size - self.generator_params["predator"]["padding"] - 1)
         self.generator_coords_food = (self.grid_size - self.generator_params["food"]["padding"] - 1, self.grid_size - self.generator_params["food"]["padding"] - 1)
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
