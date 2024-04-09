@@ -122,14 +122,14 @@ class Memory:
         del self.is_terminals[:]
 
 def run(load = False, test = False, render_mode = "non"):
-    env = PreyPredatorEnv(num_prey=12, num_predators=4, grid_size=40, max_steps_per_episode=100000, food_probability=1, max_food_count = 35, render_mode=render_mode, prey_split_probability=0.02, food_energy_gain = 10, generator_params = {
+    env = PreyPredatorEnv(num_prey=5, num_predators=2, grid_size=30, max_steps_per_episode=100000, food_probability=1, max_food_count = 25, render_mode=render_mode, prey_split_probability=0.02, food_energy_gain = 30, generator_params = {
         "prey": {
             "std_dev": 5, 
-            "padding":4
+            "padding":3
         },
         "predator": {
             "std_dev": 5, 
-            "padding":4
+            "padding":3
         },
         "food": {
             "std_dev": 5, 
@@ -156,6 +156,7 @@ def run(load = False, test = False, render_mode = "non"):
     update_timestep = 3000  # Update policy every n timesteps
     logging_interval = 100  # Log avg reward after interval
     save_interval = 200
+    switch_train_episodes = 500
     timestep_count = 0
     prey_rewards = []
     predator_rewards = []
@@ -163,7 +164,7 @@ def run(load = False, test = False, render_mode = "non"):
     avg_predator_rewards = []
     avg_length = 0
     logs = []
-    
+    currently_training = "prey"
     # Adjust training loop to handle both prey and predator
     for episode in range(1, max_episodes+1):
         env.reset()
@@ -173,6 +174,8 @@ def run(load = False, test = False, render_mode = "non"):
         prey_reward_count = 0
         predator_reward_count = 0
         ep_length = 0
+        if episode % switch_train_episodes:
+            currently_training = "prey" if currently_training == "predator" else "prey"
         for t in range(max_timesteps):
             avg_length += 1
             ep_length += 1
@@ -192,9 +195,9 @@ def run(load = False, test = False, render_mode = "non"):
                 env_state[0, agent_x, agent_y] = 1
                 env_state = env_state.reshape(-1)
                 if 'prey' in current_agent:
-                    action = prey_ppo.select_action(env_state, prey_memory)
+                    action = prey_ppo.select_action(env_state, prey_memory if currently_training == "prey" else None)
                 else:
-                    action = predator_ppo.select_action(env_state, predator_memory)
+                    action = predator_ppo.select_action(env_state, predator_memory if currently_training == "predator" else None)
 
                 # Step the environment
                 next_state, reward, done = env.step(action)
@@ -213,10 +216,12 @@ def run(load = False, test = False, render_mode = "non"):
 
             # Update agents if it's time
             if not test and (timestep_count + 1) % update_timestep == 0:
-                prey_ppo.update(prey_memory)
-                predator_ppo.update(predator_memory)
-                prey_memory.clear_memory()
-                predator_memory.clear_memory()
+                if currently_training == 'prey':
+                    prey_ppo.update(prey_memory)
+                    prey_memory.clear_memory()
+                else:
+                    predator_ppo.update(predator_memory)
+                    predator_memory.clear_memory()
                 timestep_count = 0
             env.render()
             if env.stored_num_prey == 0:
