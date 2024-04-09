@@ -154,7 +154,7 @@ def run(load = False, test = False, render_mode = "non"):
     max_episodes = 100000  # Adjust accordingly
     max_timesteps = 1000  # Adjust accordingly
     update_timestep = 3000  # Update policy every n timesteps
-    logging_interval = 100  # Log avg reward after interval
+    logging_interval = 500  # Log avg reward after interval
     save_interval = 200
     switch_train_episodes = 500
     timestep_count = 0
