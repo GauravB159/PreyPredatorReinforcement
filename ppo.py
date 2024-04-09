@@ -122,17 +122,17 @@ class Memory:
         del self.is_terminals[:]
 
 def run(load = False, test = False, render_mode = "non"):
-    env = PreyPredatorEnv(num_prey=9, num_predators=3, grid_size=50, max_steps_per_episode=100000, food_probability=0.8, max_food_count = 35, render_mode=render_mode, prey_split_probability=0.02, food_energy_gain = 70, generator_params = {
+    env = PreyPredatorEnv(num_prey=12, num_predators=4, grid_size=40, max_steps_per_episode=100000, food_probability=1, max_food_count = 35, render_mode=render_mode, prey_split_probability=0.02, food_energy_gain = 10, generator_params = {
         "prey": {
-            "std_dev":9, 
+            "std_dev": 5, 
             "padding":4
         },
         "predator": {
-            "std_dev":9, 
+            "std_dev": 5, 
             "padding":4
         },
         "food": {
-            "std_dev": 10, 
+            "std_dev": 5, 
             "padding":6
         }
     })
@@ -152,7 +152,7 @@ def run(load = False, test = False, render_mode = "non"):
     
     # Training hyperparameters
     max_episodes = 100000  # Adjust accordingly
-    max_timesteps = 500  # Adjust accordingly
+    max_timesteps = 1000  # Adjust accordingly
     update_timestep = 3000  # Update policy every n timesteps
     logging_interval = 100  # Log avg reward after interval
     save_interval = 200
