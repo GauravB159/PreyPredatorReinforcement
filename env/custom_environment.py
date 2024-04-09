@@ -268,7 +268,7 @@ class PreyPredatorEnv(AECEnv):
     def calculate_reward(self, agent, action, achievement):
         reward = 0  # Survival reward for taking a step.
         if achievement == "Prey ate food" or achievement == "Predator ate prey":
-            reward += 1
+            reward += 3
             
         # reward += self.calculate_proximity_reward(agent)
 
