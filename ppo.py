@@ -156,9 +156,9 @@ def run(load = False, test = False, render_mode = "non"):
     
     # Training hyperparameters
     max_episodes = 100000  # Adjust accordingly
-    max_timesteps = 300  # Adjust accordingly
+    max_timesteps = 150  # Adjust accordingly
     update_timestep = 3000  # Update policy every n timesteps
-    logging_interval = 20  # Log avg reward after interval
+    logging_interval = 200  # Log avg reward after interval
     save_interval = 200
     switch_train_episodes = 5000000
     timestep_count = 0
