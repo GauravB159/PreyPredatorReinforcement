@@ -117,10 +117,10 @@ class PreyPredatorEnv(AECEnv):
 
     def reset(self):
         # Reset or initialize agents' states
-        self.generator_coords_prey = (self.generator_params["prey"]["padding"], self.generator_params["prey"]["padding"])
-        self.generator_coords_predator = (self.generator_params["predator"]["padding"], self.grid_size - self.generator_params["predator"]["padding"] - 1)
-        self.generator_coords_food = (self.grid_size - self.generator_params["food"]["padding"] - 1, self.grid_size - self.generator_params["food"]["padding"] - 1)
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
+        self.generator_coords_prey = (np.random.randint(self.grid_size), np.random.randint(self.grid_size))
+        self.generator_coords_predator = (np.random.randint(self.grid_size), np.random.randint(self.grid_size))
+        self.generator_coords_food = (np.random.randint(self.grid_size), np.random.randint(self.grid_size))
         self.stored_num_predators = self.num_predators
         self.stored_num_prey = self.num_prey
         self.current_food_count = 0
@@ -145,7 +145,7 @@ class PreyPredatorEnv(AECEnv):
             self.pygame_init()
 
     def generate_food(self):
-        if self.generator_params['food']['fixed_points']:
+        if 'fixed_points' in self.generator_params['food']:
             for food_pos in self.generator_params['food']['fixed_points']:
                 food_pos = (self.generator_params['food']['padding_x'] + food_pos[0], self.generator_params['food']['padding_y'] + food_pos[1])
                 if food_pos not in self.food_positions and food_pos not in self.agents_positions.values():
@@ -158,7 +158,7 @@ class PreyPredatorEnv(AECEnv):
                 self.food_positions.append(new_food_pos)
 
     def step(self, action):
-        # self.generate_food()
+        self.generate_food()
         agent = self.agent_selection
         done = self.terminations[agent]
         reward = 0
@@ -183,7 +183,7 @@ class PreyPredatorEnv(AECEnv):
                 elif action == 4:  # Move right
                     self.agents_positions[agent] = (self.agents_positions[agent][0], min(self.agents_positions[agent][1] + 1, self.grid_size - 1))
                 # Example energy consumption for moving
-                self.agents_energy[agent] -= 1 if 'prey' in agent else 0.5 # Deduct energy for taking a step
+                self.agents_energy[agent] -= 1 # Deduct energy for taking a step
                 
                 # Example interaction: Predation or eating
                 # You'll need to implement logic to check for such interactions based on positions and agent types
@@ -397,7 +397,7 @@ class PreyPredatorEnv(AECEnv):
 
 
         pygame.display.flip()
-        self.clock.tick(20)  # Control the frame rate
+        self.clock.tick(60)  # Control the frame rate
 
     def close(self):
         # If your environment opens files or creates network connections, clean them up here
