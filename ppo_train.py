@@ -1,3 +1,3 @@
 from ppo import run
 
-run()
+run(load=True)
