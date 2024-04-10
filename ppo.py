@@ -122,10 +122,10 @@ class Memory:
         del self.is_terminals[:]
 
 def run(load = False, test = False, render_mode = "non"):
-    env = PreyPredatorEnv(num_prey=10, num_predators=4, grid_size=50, max_steps_per_episode=100000, food_probability=1, max_food_count = 40, render_mode=render_mode, prey_split_probability=0.02, food_energy_gain = 30, generator_params = {
+    env = PreyPredatorEnv(num_prey=1, num_predators=0, grid_size=35, max_steps_per_episode=100000, food_probability=1, max_food_count = 40, render_mode=render_mode, prey_split_probability=0, food_energy_gain = 30, generator_params = {
         "prey": {
-            "std_dev": 10, 
-            "padding": 4
+            "std_dev": 0, 
+            "padding": 0
         },
         "predator": {
             "std_dev": 10, 
@@ -133,7 +133,11 @@ def run(load = False, test = False, render_mode = "non"):
         },
         "food": {
             "std_dev": 20, 
-            "padding": 4
+            "padding": 4,
+            "padding_x": -2,
+            "padding_y": 4,
+            "fixed_points": [(6, 8), (7, 8), (8, 8), (9, 8), (10, 8), (8, 9), (8, 10), (8, 11), (8, 12),(12, 8), (12, 9), (13, 10), (15, 10), (12, 10), (12, 11), (12, 12), (16, 8), (16, 9), (16, 10), (16, 11), (16, 12), (14, 10),(20, 8), (19, 9), (21, 9), (18, 10), (20, 10), (22, 10), (18, 11), (22, 11), (18, 12), (22, 12),(24, 8), (24, 9), (24, 10), (24, 11), (24, 12), (28, 8), (28, 9), (28, 10), (28, 11), (28, 12), (25, 9), (26, 10), (27, 11),(30, 8), (30, 9), (30, 10), (30, 11), (30, 12), (33, 8), (32, 9), (31, 10), (32, 11), (33, 12), (6, 15), (10, 15), (7, 16), (9, 16), (8, 17), (8, 18), (8, 19),(13, 15), (14, 15), (15, 15), (12, 16), (16, 16), (12, 17), (16, 17), (12, 18), (16, 18), (13, 19), (14, 19), (15, 19),(18, 15), (18, 16), (18, 17), (18, 18), (22, 15), (22, 16), (22, 17), (22, 18), (19, 19), (20, 19), (21, 19),(26, 15), (26, 16), (26, 17), (26, 19)]
+
         }
     })
     observation_space_dim = env.observation_space.shape[0]*env.observation_space.shape[1]*env.observation_space.shape[2]
@@ -156,7 +160,7 @@ def run(load = False, test = False, render_mode = "non"):
     update_timestep = 3000  # Update policy every n timesteps
     logging_interval = 500  # Log avg reward after interval
     save_interval = 200
-    switch_train_episodes = 500
+    switch_train_episodes = 5000000
     timestep_count = 0
     prey_rewards = []
     predator_rewards = []
@@ -164,7 +168,7 @@ def run(load = False, test = False, render_mode = "non"):
     avg_predator_rewards = []
     avg_length = 0
     logs = []
-    currently_training = "predator"
+    currently_training = "prey"
     # Adjust training loop to handle both prey and predator
     for episode in range(1, max_episodes+1):
         env.reset()
@@ -232,7 +236,7 @@ def run(load = False, test = False, render_mode = "non"):
             if env.stored_num_prey == 0:
                 break
         avg_ep_prey_reward = ep_prey_reward / prey_reward_count
-        avg_ep_predator_reward = ep_predator_reward / predator_reward_count
+        avg_ep_predator_reward = ep_predator_reward / predator_reward_count if predator_reward_count else 0
         prey_rewards.append(ep_prey_reward)
         predator_rewards.append(ep_predator_reward)
         avg_prey_rewards.append(avg_ep_prey_reward)

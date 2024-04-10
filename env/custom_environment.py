@@ -36,14 +36,14 @@ class PreyPredatorEnv(AECEnv):
         self.agent_name_mapping = dict(zip(self.agents, list(range(len(self.agents)))))
         self.predator_prey_eaten = {f"predator_{i}": 0 for i in range(num_predators)}
         self.observation_histories = {agent: deque(maxlen=observation_history_length) for agent in self.agents}
+        self.food_probability = food_probability
+        self.food_energy_gain = food_energy_gain
+        self.food_positions = []
         self.reset()
         self.initial_obs = self.observe()
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
         
-        self.food_probability = food_probability
-        self.food_energy_gain = food_energy_gain
-        self.food_positions = []
     
     def normal_position(self, mean_position, generator_params):
         x, y = mean_position
@@ -136,6 +136,7 @@ class PreyPredatorEnv(AECEnv):
 
         self.steps = 0  # Reset step count
         self.food_positions = []
+        self.generate_food()
         # Reset agent selector for turn-based action selection
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
@@ -144,7 +145,12 @@ class PreyPredatorEnv(AECEnv):
             self.pygame_init()
 
     def generate_food(self):
-        if random.random() < self.food_probability and self.current_food_count < self.max_food_count:
+        if self.generator_params['food']['fixed_points']:
+            for food_pos in self.generator_params['food']['fixed_points']:
+                food_pos = (self.generator_params['food']['padding_x'] + food_pos[0], self.generator_params['food']['padding_y'] + food_pos[1])
+                if food_pos not in self.food_positions and food_pos not in self.agents_positions.values():
+                    self.food_positions.append(food_pos)
+        elif random.random() < self.food_probability and self.current_food_count < self.max_food_count:
             self.current_food_count += 1
             # Add food at random positions, ensuring no duplicates
             new_food_pos = self.normal_position(self.generator_coords_food, self.generator_params["food"])
@@ -152,7 +158,7 @@ class PreyPredatorEnv(AECEnv):
                 self.food_positions.append(new_food_pos)
 
     def step(self, action):
-        self.generate_food()
+        # self.generate_food()
         agent = self.agent_selection
         done = self.terminations[agent]
         reward = 0
