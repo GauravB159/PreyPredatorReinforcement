@@ -247,6 +247,8 @@ class PreyPredatorEnv(AECEnv):
     
     def calculate_proximity_reward(self, agent):
         proximity_reward = 0
+        if agent not in self.agents_positions:
+            return 0
         agent_pos = self.agents_positions[agent]
         
         if 'prey' in agent:
@@ -276,7 +278,7 @@ class PreyPredatorEnv(AECEnv):
         if achievement == "Prey ate food" or achievement == "Predator ate prey":
             reward += 3
             
-        # reward += self.calculate_proximity_reward(agent)
+        reward += self.calculate_proximity_reward(agent)
 
         # Significant penalty for death to emphasize survival.
         if self.terminations[agent]:
