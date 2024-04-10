@@ -155,8 +155,8 @@ def run(load = False, test = False, render_mode = "non"):
     predator_memory = Memory()
     
     # Training hyperparameters
-    max_episodes = 100000  # Adjust accordingly
-    max_timesteps = 150  # Adjust accordingly
+    max_episodes = 1000000  # Adjust accordingly
+    max_timesteps = 250  # Adjust accordingly
     update_timestep = 3000  # Update policy every n timesteps
     logging_interval = 1000  # Log avg reward after interval
     save_interval = 200
