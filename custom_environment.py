@@ -128,7 +128,7 @@ class PreyPredatorEnv(AECEnv):
 
         self.steps = 0  # Reset step count
         self.food_positions = []
-        self.generate_food()
+        self.generate_food(init = True)
         # Reset agent selector for turn-based action selection
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
@@ -136,8 +136,8 @@ class PreyPredatorEnv(AECEnv):
         if self.render_mode == 'human':
             self.pygame_init()
 
-    def generate_food(self):
-        if 'fixed_points' in self.generator_params['food']:
+    def generate_food(self, init = False):
+        if init and 'fixed_points' in self.generator_params['food']:
             for food_pos in self.generator_params['food']['fixed_points']:
                 food_pos = (self.generator_params['food']['padding_x'] + food_pos[0], self.generator_params['food']['padding_y'] + food_pos[1])
                 if food_pos not in self.food_positions and food_pos not in self.agents_positions.values():
