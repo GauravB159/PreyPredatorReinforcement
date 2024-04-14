@@ -10,10 +10,11 @@ import random
 class PreyPredatorEnv(AECEnv):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, max_steps_per_episode = 100, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01, max_food_count = 5, generator_params = {}, use_distance_reward = False, **kwargs):
+    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, max_steps_per_episode = 100, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01, max_food_count = 5, generator_params = {}, use_distance_reward = False, energy_per_step = 1, **kwargs):
         super().__init__()
         self.observation_history_length = observation_history_length
         self.prey_split_probability = prey_split_probability
+        self.energy_per_step = energy_per_step
         self.num_prey = num_prey
         self.render_mode = render_mode
         self.num_predators = num_predators
@@ -174,7 +175,7 @@ class PreyPredatorEnv(AECEnv):
                 elif action == 4:  # Move right
                     self.agents_positions[agent] = (self.agents_positions[agent][0], min(self.agents_positions[agent][1] + 1, self.grid_size - 1))
                 # Example energy consumption for moving
-                self.agents_energy[agent] -= 1 # Deduct energy for taking a step
+                self.agents_energy[agent] -= self.energy_per_step # Deduct energy for taking a step
                 
                 # Example interaction: Predation or eating
                 # You'll need to implement logic to check for such interactions based on positions and agent types

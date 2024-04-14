@@ -5,28 +5,54 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Train PPO Config",
+            "name": "Run PPO Config",
             "type": "debugpy",
             "request": "launch",
-            "program": "train.py",
-            "args": ["--config", "${input:configFile}"],
+            "program": "main.py",
+            "args": ["--config", "${input:configFile}", "--load", "${input:load}", "--render_mode", "${input:render_mode}", "--mode", "${input:mode}"],
             "console": "integratedTerminal",
         },
-        {
-            "name": "Test PPO Config",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "test.py",
-            "args": ["--config", "${input:configFile}"],
-            "console": "integratedTerminal",
-        }
     ],
     "inputs": [
+        {
+            "id": "mode",
+            "description": "Do you want train or test?",
+            "default": "no",
+            "type": "pickString",
+            "options": [
+                {"label": "train", "value": "Train"},
+                {"label": "test", "value": "Test"}
+            ]
+        },
+        {
+            "id": "render_mode",
+            "description": "Do you want to render the visualization?",
+            "default": "no",
+            "type": "pickString",
+            "options": [
+                {"label": "No", "value": "no"},
+                {"label": "Yes", "value": "human"}
+            ]
+        },
+        {
+            "id": "load",
+            "description": "Do you want to load saved models?",
+            "default": "false",
+            "type": "pickString",
+            "options": [
+                {"label": "False", "value": "false"},
+                {"label": "True", "value": "true"}
+            ]
+        },
         {
             "id": "configFile",
             "description": "Please enter a config file name",
             "default": "single_prey",
-            "type": "promptString"
+            "type": "pickString",
+            "options": [
+                {"label": "Single Prey", "value": "single_prey"},
+                {"label": "Thank you!", "value": "thank_you"}
+            ]
         }
     ]
 }

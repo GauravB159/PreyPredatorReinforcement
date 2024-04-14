@@ -3,7 +3,7 @@ import pandas as pd
 import pygame
 import json
 from ppo import PPO
-
+from pathlib import Path
 class Runner:
     def __init__(self, config_name, load = False, render_mode = "non", test = False) -> None:
         config = json.loads(open(f"configs/{config_name}.json").read())
@@ -22,8 +22,11 @@ class Runner:
         self.prey_ppo = PPO(self.observation_space_dim, self.action_space_dim)
         self.predator_ppo = PPO(self.observation_space_dim, self.action_space_dim)
         self.currently_training = "prey"
+        Path(f"models/{config['name']}").mkdir(parents=True, exist_ok=True)
+        Path(f"logs").mkdir(parents=True, exist_ok=True)
         self.logs = []
         if load:
+            self.logs = list(pd.read_csv(f"logs/{config['name']}.csv"))
             self.prey_ppo.load_model(f"models/{config['name']}/prey_agent.pth")
             self.predator_ppo.load_model(f"models/{config['name']}/predator_agent.pth")
         self.reset()
@@ -121,14 +124,14 @@ class Runner:
             self.predator_ppo.save_model(f"models/{self.config['name']}/predator_agent.pth")
         print(f'Episode {episode}\tEpisode Length: {self.ep_length}\tPrey Reward: {self.ep_prey_reward:.2f}\tPredator Reward: {self.ep_predator_reward:.2f}')
         if not self.test and episode % self.logging_interval == 0:
-            avg_length = int(avg_length / self.logging_interval)
+            total_avg_length = int(self.avg_length / self.logging_interval)
             avg_prey_reward = sum(self.avg_prey_rewards)/len(self.prey_rewards)
             avg_predator_reward = sum(self.avg_predator_rewards)/len(self.predator_rewards)
             prey_reward = sum(self.prey_rewards)/len(self.prey_rewards)
             predator_reward = sum(self.predator_rewards)/len(self.predator_rewards)
             log = {
                 "Episode": episode,
-                "Avg length": avg_length, 
+                "Avg length": total_avg_length, 
                 "Total prey reward": prey_reward,
                 "Avg prey reward": avg_prey_reward,
                 "Total predator reward": predator_reward,
@@ -137,7 +140,7 @@ class Runner:
             print(log)
             print()
             self.logs.append(log)
-            pd.DataFrame(self.logs).to_csv(f"{self.config['name']}/log.csv", index=None)
+            pd.DataFrame(self.logs).to_csv(f"logs/{self.config['name']}.csv", index=None)
             self.reset()
     
     def run(self):
