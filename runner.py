@@ -28,7 +28,7 @@ class Runner:
         self.episode_offset = 0
         if load:
             self.saved_config = open(f"models/{self.config_name}/saved_config.json").read()
-            assert self.saved_config == json.dumps(self.config, indent=4), "Saved config for this model does not match the config currently being used"
+            assert json.dumps(json.loads(self.saved_config)) == json.dumps(self.config), "Saved config for this model does not match the config currently being used"
             self.logs = pd.read_csv(f"logs/{self.config_name}.csv").to_dict(orient="records")
             self.prey_ppo.load_model(f"models/{self.config_name}/prey_agent.pth")
             self.predator_ppo.load_model(f"models/{self.config_name}/predator_agent.pth")
