@@ -5,11 +5,20 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: Current File",
+            "name": "Train PPO",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal"
+            "program": "train.py",
+            "args": ["--config", "${input:configFile}"],
+            "console": "integratedTerminal",
+        }
+    ],
+    "inputs": [
+        {
+            "id": "configFile",
+            "description": "Please enter a config file name",
+            "default": "single_prey",
+            "type": "promptString"
         }
     ]
 }
