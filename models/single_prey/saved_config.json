@@ -3,9 +3,9 @@
     "prey_split_probability": 0.01,
     "food_energy_gain": 30,
     "num_predators": 0,
-    "max_food_count": 2,
+    "max_food_count": 30,
     "food_probability": 1,
-    "grid_size": 40,
+    "grid_size": 30,
     "use_distance_reward": true,
     "generator_params": {
         "prey": {
@@ -17,8 +17,8 @@
             "padding": 1
         },
         "food": {
-            "std_dev": 3,
-            "padding": 2
+            "std_dev": 12,
+            "padding": 0
         }
     },
     "max_episodes": 1000000,
