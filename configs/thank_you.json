@@ -1,7 +1,7 @@
 {
     "num_prey": 1,
     "prey_split_probability": 0,
-    "food_energy_gain": 1,
+    "food_energy_gain": 3,
     "num_predators": 0,
     "max_food_count": 40,
     "food_probability": 0,
@@ -26,7 +26,7 @@
         }
     },
     "max_episodes": 1000000,
-    "max_timesteps": 150,
+    "max_timesteps": 200,
     "update_timestep": 3000,
     "logging_interval": 1000,
     "save_interval": 200,
