@@ -106,9 +106,9 @@ class Runner:
     def run_episode(self, episode):
         
         if episode % self.switch_train_episodes == 0:
-            print(f"Currently training: {currently_training}")
-            currently_training = "prey" if currently_training == "predator" else "predator"
-            print(f"Now switching to: {currently_training}")
+            print(f"Currently training: {self.currently_training}")
+            self.currently_training = "prey" if self.currently_training == "predator" else "predator"
+            print(f"Now switching to: {self.currently_training}")
             self.timestep_count = 0
             self.prey_ppo.memory.clear_memory()
             self.predator_ppo.memory.clear_memory()

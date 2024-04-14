@@ -64,6 +64,7 @@ class PPO:
 
     def update(self):
         # Monte Carlo estimate of state rewards:
+        if len(self.memory.rewards) == 0: return
         rewards = []
         discounted_reward = 0
         for reward, is_terminal in zip(reversed(self.memory.rewards), reversed(self.memory.is_terminals)):
