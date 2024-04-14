@@ -7,7 +7,7 @@ from pathlib import Path
 class Runner:
     def __init__(self, config_name, load = False, render_mode = "non", test = False) -> None:
         config = json.loads(open(f"configs/{config_name}.json").read())
-        config["name"] = config_name
+        self.config_name = config_name
         self.config = config
         self.env = PreyPredatorEnv(render_mode=render_mode, **config)
         self.test = test
@@ -22,13 +22,18 @@ class Runner:
         self.prey_ppo = PPO(self.observation_space_dim, self.action_space_dim)
         self.predator_ppo = PPO(self.observation_space_dim, self.action_space_dim)
         self.currently_training = "prey"
-        Path(f"models/{config['name']}").mkdir(parents=True, exist_ok=True)
+        Path(f"models/{self.config_name}").mkdir(parents=True, exist_ok=True)
         Path(f"logs").mkdir(parents=True, exist_ok=True)
         self.logs = []
+        self.episode_offset = 0
         if load:
-            self.logs = list(pd.read_csv(f"logs/{config['name']}.csv"))
-            self.prey_ppo.load_model(f"models/{config['name']}/prey_agent.pth")
-            self.predator_ppo.load_model(f"models/{config['name']}/predator_agent.pth")
+            self.saved_config = open(f"models/{self.config_name}/saved_config.json").read()
+            assert self.saved_config == json.dumps(self.config, indent=4), "Saved config for this model does not match the config currently being used"
+            self.logs = pd.read_csv(f"logs/{self.config_name}.csv").to_dict(orient="records")
+            self.prey_ppo.load_model(f"models/{self.config_name}/prey_agent.pth")
+            self.predator_ppo.load_model(f"models/{self.config_name}/predator_agent.pth")
+            if len(self.logs):
+                self.episode_offset = self.logs[-1]["Episode"]
         self.reset()
         
     def reset(self):
@@ -120,9 +125,11 @@ class Runner:
         
         # Save models periodically
         if not self.test and episode % self.save_interval == 0:
-            self.prey_ppo.save_model(f"models/{self.config['name']}/prey_agent.pth")
-            self.predator_ppo.save_model(f"models/{self.config['name']}/predator_agent.pth")
-        print(f'Episode {episode}\tEpisode Length: {self.ep_length}\tPrey Reward: {self.ep_prey_reward:.2f}\tPredator Reward: {self.ep_predator_reward:.2f}')
+            with open(f"models/{self.config_name}/saved_config.json", "w") as f:
+                f.write(json.dumps(self.config, indent=4))
+            self.prey_ppo.save_model(f"models/{self.config_name}/prey_agent.pth")
+            self.predator_ppo.save_model(f"models/{self.config_name}/predator_agent.pth")
+        print(f'Episode {self.episode_offset + episode}\tEpisode Length: {self.ep_length}\tPrey Reward: {self.ep_prey_reward:.2f}\tPredator Reward: {self.ep_predator_reward:.2f}')
         if not self.test and episode % self.logging_interval == 0:
             total_avg_length = int(self.avg_length / self.logging_interval)
             avg_prey_reward = sum(self.avg_prey_rewards)/len(self.prey_rewards)
@@ -130,7 +137,7 @@ class Runner:
             prey_reward = sum(self.prey_rewards)/len(self.prey_rewards)
             predator_reward = sum(self.predator_rewards)/len(self.predator_rewards)
             log = {
-                "Episode": episode,
+                "Episode": self.episode_offset + episode,
                 "Avg length": total_avg_length, 
                 "Total prey reward": prey_reward,
                 "Avg prey reward": avg_prey_reward,
@@ -140,7 +147,7 @@ class Runner:
             print(log)
             print()
             self.logs.append(log)
-            pd.DataFrame(self.logs).to_csv(f"logs/{self.config['name']}.csv", index=None)
+            pd.DataFrame(self.logs).to_csv(f"logs/{self.config_name}.csv", index=None)
             self.reset()
     
     def run(self):

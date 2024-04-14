@@ -5,11 +5,19 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Run PPO Config",
+            "name": "Train PPO Config",
             "type": "debugpy",
             "request": "launch",
             "program": "main.py",
-            "args": ["--config", "${input:configFile}", "--load", "${input:load}", "--render_mode", "${input:render_mode}", "--mode", "${input:mode}"],
+            "args": ["--config", "${input:configFile}", "--load", "${input:load}", "--render_mode", "${input:render_mode}", "--mode", "train"],
+            "console": "integratedTerminal",
+        },
+        {
+            "name": "Test PPO Config",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main.py",
+            "args": ["--config", "${input:configFile}", "--load", "${input:load}", "--render_mode", "${input:render_mode}", "--mode", "test"],
             "console": "integratedTerminal",
         },
     ],
@@ -20,8 +28,8 @@
             "default": "no",
             "type": "pickString",
             "options": [
-                {"label": "train", "value": "Train"},
-                {"label": "test", "value": "Test"}
+                {"label": "Train", "value": "train"},
+                {"label": "Test", "value": "test"}
             ]
         },
         {
