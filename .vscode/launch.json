@@ -17,7 +17,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "main.py",
-            "args": ["--config", "${input:configFile}", "--load", "${input:load}", "--render_mode", "${input:render_mode}", "--mode", "test"],
+            "args": ["--config", "${input:configFile}", "--load", "true", "--render_mode", "human", "--mode", "test"],
             "console": "integratedTerminal",
         },
     ],
@@ -58,6 +58,7 @@
             "default": "single_prey",
             "type": "pickString",
             "options": [
+                {"label": "Multi Agent", "value": "multi_agent"},
                 {"label": "No Food", "value": "no_food"},
                 {"label": "Single Prey", "value": "single_prey"},
                 {"label": "Thank you!", "value": "thank_you"}
