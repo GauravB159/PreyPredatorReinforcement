@@ -1,0 +1,23 @@
+{
+    "num_prey": 1,
+    "prey_split_probability": 0.01,
+    "food_energy_gain": 30,
+    "num_predator": 0,
+    "max_food_count": 2,
+    "food_probability": 1,
+    "grid_size": 40,
+    "generator_params": {
+        "prey": {
+            "std_dev": 2, 
+            "padding": 1
+        },
+        "predator": {
+            "std_dev": 2, 
+            "padding": 1
+        },
+        "food": {
+            "std_dev": 3, 
+            "padding": 2
+        }
+    }
+}
