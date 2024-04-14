@@ -143,10 +143,10 @@ class PreyPredatorEnv(AECEnv):
                 if food_pos not in self.food_positions and food_pos not in self.agents_positions.values():
                     self.food_positions.append(food_pos)
         elif random.random() < self.food_probability and self.current_food_count < self.max_food_count:
-            self.current_food_count += 1
             # Add food at random positions, ensuring no duplicates
             new_food_pos = self.normal_position(self.generator_coords_food, self.generator_params["food"])
             if new_food_pos not in self.food_positions and new_food_pos not in self.agents_positions.values():
+                self.current_food_count += 1
                 self.food_positions.append(new_food_pos)
 
     def step(self, action):
