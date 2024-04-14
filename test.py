@@ -1,4 +1,5 @@
-from ppo import run
+from runner import Runner
 import sys
 
-run(load = False, test = True, render_mode="human", config_name=sys.argv[2])
+runner = Runner(config_name=sys.argv[2], load=True, render_mode="human", test=True)
+runner.run()
