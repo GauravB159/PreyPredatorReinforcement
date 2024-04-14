@@ -10,7 +10,7 @@ import random
 class PreyPredatorEnv(AECEnv):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01, max_food_count = 5, generator_params = {}):
+    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, max_steps_per_episode = 100, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01, max_food_count = 5, generator_params = {}, use_distance_reward = False, **kwargs):
         super().__init__()
         self.observation_history_length = observation_history_length
         self.prey_split_probability = prey_split_probability
@@ -18,10 +18,10 @@ class PreyPredatorEnv(AECEnv):
         self.render_mode = render_mode
         self.num_predators = num_predators
         self.max_food_count = max_food_count
+        self.use_distance_reward = use_distance_reward
         self.current_food_count = 0
         self.grid_size = grid_size
         self.initial_energy = initial_energy
-        self.reproduction_energy = reproduction_energy
         self.stored_num_predators = -1
         self.screen = None
         self.stored_num_prey = -1
@@ -51,15 +51,6 @@ class PreyPredatorEnv(AECEnv):
         new_y = np.clip(np.random.normal(y, generator_params["std_dev"]), 0, self.grid_size - 1)
         return int(new_x), int(new_y)
 
-    def observe_old(self, agent):
-        # Assuming the base observe method returns a numpy array
-        current_observation = self.observe(agent)
-        self.observation_histories[agent].append(current_observation)
-        # Concatenate observations along a new dimension to maintain the order
-        extended_observation = np.stack(self.observation_histories[agent], axis=0)
-        return extended_observation.flatten()  # Flatten if your model expects flat vectors
-
-        
     def add_agent(self, agent_type, position=None):
         """
         Adds a new agent of the specified type to the environment.
@@ -208,11 +199,7 @@ class PreyPredatorEnv(AECEnv):
                             
                             # If a predator can only eat once per turn, break here
                             break
-                # Check for reproduction or death conditions
-                # E.g., split or remove agents based on energy levels or other conditions
-            # Update reward for the action taken
-
-            # Example condition to check if the agent's episode is done
+                        
             if self.agents_energy[agent] <= 0:
                 self.agents_positions.pop(agent)
                 self.terminations[agent] = True
@@ -277,8 +264,9 @@ class PreyPredatorEnv(AECEnv):
         reward = 0  # Survival reward for taking a step.
         if achievement == "Prey ate food" or achievement == "Predator ate prey":
             reward += 3
-            
-        # reward += self.calculate_proximity_reward(agent)
+        
+        if self.use_distance_reward:
+            reward += self.calculate_proximity_reward(agent)
 
         # Significant penalty for death to emphasize survival.
         if self.terminations[agent]:

@@ -5,10 +5,18 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Train PPO",
+            "name": "Train PPO Config",
             "type": "debugpy",
             "request": "launch",
             "program": "train.py",
+            "args": ["--config", "${input:configFile}"],
+            "console": "integratedTerminal",
+        },
+        {
+            "name": "Test PPO Config",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "test.py",
             "args": ["--config", "${input:configFile}"],
             "console": "integratedTerminal",
         }
