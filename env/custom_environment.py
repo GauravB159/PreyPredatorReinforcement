@@ -10,16 +10,17 @@ import random
 class PreyPredatorEnv(AECEnv):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, padding = 10, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01):
+    def __init__(self, num_prey=10, num_predators=2, grid_size=10, initial_energy=100, reproduction_energy=200, max_steps_per_episode = 100, food_probability = 0.05, food_energy_gain = 50, render_mode = 'human', observation_history_length = 5, prey_split_probability = 0.01, max_food_count = 5, generator_params = {}):
         super().__init__()
         self.observation_history_length = observation_history_length
         self.prey_split_probability = prey_split_probability
         self.num_prey = num_prey
         self.render_mode = render_mode
         self.num_predators = num_predators
+        self.max_food_count = max_food_count
+        self.current_food_count = 0
         self.grid_size = grid_size
         self.initial_energy = initial_energy
-        self.padding = padding
         self.reproduction_energy = reproduction_energy
         self.stored_num_predators = -1
         self.screen = None
@@ -27,35 +28,32 @@ class PreyPredatorEnv(AECEnv):
         self.max_steps_per_episode = max_steps_per_episode
         self.max_detection_range = self.grid_size  # Maximum range a ray can detect
         self.no_detection_value = self.max_detection_range + 1  # Value for no detection in a direction
-        self.default_observation = np.full((8, 3), self.no_detection_value, dtype=np.float32)  # Initialize observation with no detections
-        self.energy_gain_from_eating = 100
+        self.generator_params = generator_params
         # Define action and observation space
         self.action_space = spaces.Discrete(5) # Example: 0 = stay, 1-4 = move in directions
-        # self.observation_space = spaces.Box(low=0, high=self.no_detection_value, shape=(self.observation_history_length, 8, 3), dtype=int)
-        self.observation_space = spaces.Box(low=0, high=1, shape=(3, self.grid_size, self.grid_size), dtype=int)
+        self.observation_space = spaces.Box(low=0, high=1, shape=(4, self.grid_size, self.grid_size), dtype=int)
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
         self.agent_name_mapping = dict(zip(self.agents, list(range(len(self.agents)))))
         self.predator_prey_eaten = {f"predator_{i}": 0 for i in range(num_predators)}
         self.observation_histories = {agent: deque(maxlen=observation_history_length) for agent in self.agents}
-        self.stacked_default_observation = deque(maxlen=observation_history_length)
-        initial_obs = self.observe_single()
-        for _ in range(self.observation_history_length):
-            self.stacked_default_observation.append(initial_obs)
-        self.stacked_flattened_default_observation = np.stack(self.stacked_default_observation, axis=0).flatten()
-        self._agent_selector = agent_selector(self.agents)
-        self.agent_selection = self._agent_selector.reset()
-        
         self.food_probability = food_probability
         self.food_energy_gain = food_energy_gain
         self.food_positions = []
-
-        # Initialize state variables
         self.reset()
+        self.initial_obs = self.observe()
+        self._agent_selector = agent_selector(self.agents)
+        self.agent_selection = self._agent_selector.reset()
+        
     
+    def normal_position(self, mean_position, generator_params):
+        x, y = mean_position
+        new_x = np.clip(np.random.normal(x, generator_params["std_dev"]), 0, self.grid_size - 1)
+        new_y = np.clip(np.random.normal(y, generator_params["std_dev"]), 0, self.grid_size - 1)
+        return int(new_x), int(new_y)
 
-    def observe(self, agent):
+    def observe_old(self, agent):
         # Assuming the base observe method returns a numpy array
-        current_observation = self.observe_single(agent)
+        current_observation = self.observe(agent)
         self.observation_histories[agent].append(current_observation)
         # Concatenate observations along a new dimension to maintain the order
         extended_observation = np.stack(self.observation_histories[agent], axis=0)
@@ -75,70 +73,59 @@ class PreyPredatorEnv(AECEnv):
             self.agents.append(new_id)
         
         # Set the initial position
+        if agent_type == "prey":
+            mean_position = self.generator_coords_prey
+        elif agent_type == "predator":
+            mean_position = self.generator_coords_predator
+        # Use normal_position for the new position if none is provided
         if position is None:
-            x = ((self.grid_size // 2) + np.random.randint(self.grid_size // 2)) if agent_type == "predator"  else (np.random.randint(self.grid_size))
-            y = (self.grid_size // 2) * int(agent_type == "prey") + np.random.randint(self.grid_size // 2)
-            position = (x, y)
+            position = self.normal_position(mean_position, self.generator_params[agent_type])
         self.agents_positions[new_id] = position
         self.agents_energy[new_id] = self.initial_energy
         self.agents_alive[new_id] = True
         self.terminations[new_id] = False
         self.truncations[new_id] = False
-        self.observation_histories[new_id] = self.stacked_default_observation
         self.infos[new_id] = {}
         self._cumulative_rewards[new_id] = 0
         self.agent_name_mapping = dict(zip(self.agents, list(range(len(self.agents)))))
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
         
-    def observe_single(self, agent = None):
-        """
-        Creates an observation tensor with distances to the nearest prey, predator, and food
-        in 8 directions around the agent. Each ray stops at the first object encountered.
-        """
-        observation = self.default_observation.copy()        
-        if not agent or self.terminations[agent]:
-            return observation  # If agent is done, return no detection for all
+    def get_average_rewards(self):
+        values = self._cumulative_rewards.values()
+        return sum(values) / len(values)
+        
+    def observe(self, agent=None):
+        observation = np.zeros((4, self.grid_size, self.grid_size), dtype=int)
 
-        directions = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]  # 8 directional vectors
-        agent_pos = self.agents_positions[agent]
+        if agent not in self.agents_positions:
+            return observation
+        
+        for other_agent, (x, y) in self.agents_positions.items():
+            if self.terminations[other_agent]:
+                continue
+            if 'prey' in other_agent:
+                observation[1, x, y] = 1  # Prey
+            elif 'predator' in other_agent:
+                observation[2, x, y] = 1  # Predator
 
-        # Iterate over each direction
-        for i, (dx, dy) in enumerate(directions):
-            for distance in range(1, self.max_detection_range + 1):
-                ray_pos = (agent_pos[0] + dx * distance, agent_pos[1] + dy * distance)
+        # Handle food similarly
+        for (x, y) in self.food_positions:
+            observation[3, x, y] = 1  # Food
 
-                # Check bounds
-                if ray_pos[0] < 0 or ray_pos[0] >= self.grid_size or ray_pos[1] < 0 or ray_pos[1] >= self.grid_size:
-                    break  # Stop if the ray goes out of bounds
-
-                found = False  # Flag to indicate if an object has been detected
-
-                # Check for other agents (prey and predators)
-                for other_agent, pos in self.agents_positions.items():
-                    if agent == other_agent:
-                        continue
-                    if pos == ray_pos:
-                        if 'prey' in other_agent:
-                            observation[i, 0] = distance  # Distance to prey
-                        elif 'predator' in other_agent:
-                            observation[i, 1] = distance  # Distance to predator
-                        found = True  # Mark that an object has been found
-                        break  # Stop extending this ray
-
-                # Check for food, only if no agent was found in this direction
-                if not found and ray_pos in self.food_positions:
-                    observation[i, 2] = distance  # Distance to food
-                    break  # Food found, no need to extend the ray further
         return observation
-
 
     def reset(self):
         # Reset or initialize agents' states
         self.agents = [f"prey_{i}" for i in range(self.num_prey)] + [f"predator_{j}" for j in range(self.num_predators)]
+        self.generator_coords_prey = (np.random.randint(self.grid_size), np.random.randint(self.grid_size))
+        self.generator_coords_predator = (np.random.randint(self.grid_size), np.random.randint(self.grid_size))
+        self.generator_coords_food = (np.random.randint(self.grid_size), np.random.randint(self.grid_size))
         self.stored_num_predators = self.num_predators
         self.stored_num_prey = self.num_prey
-        self.agents_positions = {agent: (((self.grid_size // 2) + np.random.randint(self.grid_size // 2)) if "predator" in agent else (np.random.randint(self.grid_size)), (self.grid_size // 2) * int("prey" in agent) + np.random.randint(self.grid_size // 2)) for agent in self.agents}
+        self.current_food_count = 0
+        self.agents_positions = {f"prey_{i}": self.normal_position(self.generator_coords_prey, self.generator_params["prey"]) for i in range(self.num_prey)}   
+        self.agents_positions.update({f"predator_{j}": self.normal_position(self.generator_coords_predator, self.generator_params["predator"]) for j in range(self.num_predators)})     
         self.agents_energy = {agent: self.initial_energy for agent in self.agents}
         self.agents_alive = {agent: True for agent in self.agents}  # Track whether agents are alive
 
@@ -149,19 +136,24 @@ class PreyPredatorEnv(AECEnv):
 
         self.steps = 0  # Reset step count
         self.food_positions = []
+        self.generate_food()
         # Reset agent selector for turn-based action selection
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
         self.observation_histories = {agent: deque(maxlen=self.observation_history_length) for agent in self.agents}
-        for agent in self.agents:
-            self.observation_histories[agent] = self.stacked_default_observation
         if self.render_mode == 'human':
             self.pygame_init()
 
     def generate_food(self):
-        if random.random() < self.food_probability:
+        if 'fixed_points' in self.generator_params['food']:
+            for food_pos in self.generator_params['food']['fixed_points']:
+                food_pos = (self.generator_params['food']['padding_x'] + food_pos[0], self.generator_params['food']['padding_y'] + food_pos[1])
+                if food_pos not in self.food_positions and food_pos not in self.agents_positions.values():
+                    self.food_positions.append(food_pos)
+        elif random.random() < self.food_probability and self.current_food_count < self.max_food_count:
+            self.current_food_count += 1
             # Add food at random positions, ensuring no duplicates
-            new_food_pos = (np.random.randint(self.grid_size // 2), np.random.randint(self.grid_size // 2))
+            new_food_pos = self.normal_position(self.generator_coords_food, self.generator_params["food"])
             if new_food_pos not in self.food_positions and new_food_pos not in self.agents_positions.values():
                 self.food_positions.append(new_food_pos)
 
@@ -170,24 +162,26 @@ class PreyPredatorEnv(AECEnv):
         agent = self.agent_selection
         done = self.terminations[agent]
         reward = 0
-
+        achievement = None
         if not done:  # Proceed only if the agent's episode is not done
             # Apply action and update environment state
             if self.agents_alive[agent] and self.agents_energy[agent] > 0:  # Proceed only if the agent is alive, or has energy
-                if 'prey' in agent  and self.agents_positions.get(self.agent_selection) in self.food_positions:
+                if 'prey' in agent and self.agents_positions.get(self.agent_selection) in self.food_positions:
                     # Agent consumes food
                     # print(f"{self.agent_selection} has consumed food")
+                    achievement = "Prey ate food"
+                    self.current_food_count -= 1
                     self.agents_energy[self.agent_selection] += self.food_energy_gain
                     self.food_positions.remove(self.agents_positions[self.agent_selection])
                 # Example movement action implementation
                 if action == 1:  # Move up
-                    self.agents_positions[agent] = (max(self.agents_positions[agent][0] - 1, self.padding), self.agents_positions[agent][1])
+                    self.agents_positions[agent] = (max(self.agents_positions[agent][0] - 1, 0), self.agents_positions[agent][1])
                 elif action == 2:  # Move down
-                    self.agents_positions[agent] = (min(self.agents_positions[agent][0] + 1, self.grid_size - self.padding), self.agents_positions[agent][1])
+                    self.agents_positions[agent] = (min(self.agents_positions[agent][0] + 1, self.grid_size - 1), self.agents_positions[agent][1])
                 elif action == 3:  # Move left
-                    self.agents_positions[agent] = (self.agents_positions[agent][0], max(self.agents_positions[agent][1] - 1, self.padding))
+                    self.agents_positions[agent] = (self.agents_positions[agent][0], max(self.agents_positions[agent][1] - 1, 0))
                 elif action == 4:  # Move right
-                    self.agents_positions[agent] = (self.agents_positions[agent][0], min(self.agents_positions[agent][1] + 1, self.grid_size - self.padding))
+                    self.agents_positions[agent] = (self.agents_positions[agent][0], min(self.agents_positions[agent][1] + 1, self.grid_size - 1))
                 # Example energy consumption for moving
                 self.agents_energy[agent] -= 1 # Deduct energy for taking a step
                 
@@ -204,19 +198,19 @@ class PreyPredatorEnv(AECEnv):
                             # Example: Remove the prey from the simulation
                             self.agents_positions.pop(prey_agent)
                             self.predator_prey_eaten[agent] += 1
+                            achievement = "Predator ate prey"
                             # Mark the prey as done (or removed)
                             self.terminations[prey_agent] = True
+                            self.agents_alive[prey_agent] = False
                             self.agents_energy[prey_agent] = 0
                             # Optionally, update predator state (e.g., increase energy, contribute to reproduction counter)
-                            self.agents_energy[self.agent_selection] += self.energy_gain_from_eating
+                            self.agents_energy[self.agent_selection] += self.food_energy_gain
                             
                             # If a predator can only eat once per turn, break here
                             break
                 # Check for reproduction or death conditions
                 # E.g., split or remove agents based on energy levels or other conditions
             # Update reward for the action taken
-            reward = self.calculate_reward(agent, action)  # You'll need to implement this based on your game's rules
-            self._cumulative_rewards[agent] += reward
 
             # Example condition to check if the agent's episode is done
             if self.agents_energy[agent] <= 0:
@@ -229,11 +223,13 @@ class PreyPredatorEnv(AECEnv):
                 self.terminations[agent] = True  # Mark done as well when truncating
 
         # Proceed to next agent
-        if 'prey' in agent and np.random.rand() < self.prey_split_probability and self.agents_energy[agent] > 70:  # 10% chance for prey to split
+        if 'prey' in agent and np.random.rand() < self.prey_split_probability and self.agents_energy[agent] > 120:  # 10% chance for prey to split
             self.add_agent("prey")
-        elif 'predator' in agent and self.predator_prey_eaten[agent] >= 5:  # Predator splits after eating 5 prey
+        elif 'predator' in agent and self.predator_prey_eaten[agent] >= 2:  # Predator splits after eating 5 prey
             self.add_agent("predator")
             self.predator_prey_eaten[agent] = 0
+        reward = self.calculate_reward(agent, action, achievement)  # You'll need to implement this based on your game's rules
+        self._cumulative_rewards[agent] += reward
         self.agent_selection = self._agent_selector.next()
         
         num_prey = sum('prey' in agent for agent in self.agents_positions.keys())
@@ -245,16 +241,47 @@ class PreyPredatorEnv(AECEnv):
 
     def get_position(self, agent):
         return self.agents_positions.get(agent, (None, None))
+    
+    def calculate_distance(self, pos1, pos2):
+        return abs(pos1[0] - pos2[0])  + abs(pos1[1] - pos2[1])
+    
+    def calculate_proximity_reward(self, agent):
+        proximity_reward = 0
+        if agent not in self.agents_positions:
+            return 0
+        agent_pos = self.agents_positions[agent]
+        
+        if 'prey' in agent:
+            # For prey, find the closest predator and food to adjust the reward based on distance
+            closest_predator_distance = min([self.calculate_distance(agent_pos, self.agents_positions[a]) for a in self.agents_positions if 'predator' in a], default=float('inf'))
+            closest_food_distance = min([self.calculate_distance(agent_pos, f) for f in self.food_positions], default=float('inf'))
+            
+            # Reward for getting closer to food and penalize for getting closer to a predator
+            if closest_food_distance != float('inf'):
+                proximity_reward += 1 / (1 + closest_food_distance)  # Scaled inversely by distance to food
+            if closest_predator_distance != float('inf'):
+                proximity_reward -= 1 / (1 + closest_predator_distance)  # Penalty scaled inversely by distance to predator
 
-    def calculate_reward(self, agent, action):
-        reward = 1  # Survival reward for taking a step.
-        current_energy = self.agents_energy[agent]
-        # Penalty if energy is critically low, encouraging finding food/prey.
-        if current_energy < 20:
-            reward -= 0.5
+        elif 'predator' in agent:
+            # For predators, find the closest prey to adjust the reward based on distance
+            closest_prey_distance = min([self.calculate_distance(agent_pos, self.agents_positions[a]) for a in self.agents_positions if 'prey' in a], default=float('inf'))
+            
+            # Reward for getting closer to prey
+            if closest_prey_distance != float('inf'):
+                proximity_reward += 2 / (1 + closest_prey_distance)  # Reward scaled inversely by distance to prey
+
+        return proximity_reward
+
+
+    def calculate_reward(self, agent, action, achievement):
+        reward = 0  # Survival reward for taking a step.
+        if achievement == "Prey ate food" or achievement == "Predator ate prey":
+            reward += 3
+            
+        # reward += self.calculate_proximity_reward(agent)
 
         # Significant penalty for death to emphasize survival.
-        if not self.agents_alive[agent]:
+        if self.terminations[agent]:
             reward -= 10
 
         return reward
@@ -268,20 +295,22 @@ class PreyPredatorEnv(AECEnv):
         self.cell_size = self.screen_size // self.grid_size
         self.screen = pygame.display.set_mode((self.screen_size + 200, self.screen_size))
         self.clock = pygame.time.Clock()  # For controlling the frame rate
-        self.actual_grid = pygame.Surface((self.screen_size - 2 * self.padding, self.screen_size), pygame.SRCALPHA)
+        self.actual_grid = pygame.Surface((self.screen_size, self.screen_size), pygame.SRCALPHA)
         self.actual_grid.fill((0, 0, 0, 10))
 
     def pygame_quit(self):
         pygame.quit()
         sys.exit()
         
-    def draw_food(self, pos):
+    def draw_food(self, pos, cell_size = None):
         # Draw food on the grid, maybe as green squares
-        center_x = pos[0] * self.cell_size + self.cell_size // 2
-        center_y = pos[1] * self.cell_size + self.cell_size // 2
+        if not cell_size:
+            cell_size = self.cell_size
+        center_x = pos[0] * cell_size + cell_size // 2
+        center_y = pos[1] * cell_size + cell_size // 2
         
         # Define the size of the triangle
-        triangle_size = self.cell_size  # Adjust this value as needed
+        triangle_size = cell_size  # Adjust this value as needed
         
         # Calculate the points of the triangle (equilateral for simplicity)
         point1 = (center_x, center_y - triangle_size // 2)
@@ -291,13 +320,17 @@ class PreyPredatorEnv(AECEnv):
         # Draw the triangle
         pygame.draw.polygon(self.screen, (17, 186, 17), [point1, point2, point3]) 
         
-    def draw_predator(self, pos):
+    def draw_predator(self, pos, cell_size = None):
         color = (229, 48, 48) # Red for predator
-        pygame.draw.circle(self.screen, color, center=(pos[0]*self.cell_size, pos[1]*self.cell_size), radius=self.cell_size)
+        if not cell_size:
+            cell_size = self.cell_size
+        pygame.draw.circle(self.screen, color, center=(pos[0]*cell_size + cell_size // 2, pos[1]*cell_size + cell_size // 2), radius= + cell_size // 2)
         
-    def draw_prey(self, pos):
+    def draw_prey(self, pos, cell_size = None):
         color = (255, 189, 29)  # Yellow for prey
-        pygame.draw.rect(self.screen, color, [pos[0]*self.cell_size, pos[1]*self.cell_size, self.cell_size, self.cell_size])
+        if not cell_size:
+            cell_size = self.cell_size
+        pygame.draw.rect(self.screen, color, [pos[0]*cell_size, pos[1]*cell_size, cell_size, cell_size])
 
     def render(self, mode='human'):
         if mode != 'human' or not self.screen:
@@ -315,17 +348,17 @@ class PreyPredatorEnv(AECEnv):
                 self.draw_predator((x, y))
             else:
                 self.draw_prey((x, y))
-            observation = self.observe_single(agent)
-            directions = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
+            # observation = self.observe(agent)
+            # directions = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
 
-            agent_center = (x * self.cell_size + self.cell_size // 2, y * self.cell_size + self.cell_size // 2)
-            # Draw rays for detected objects
-            for i, (dx, dy) in enumerate(directions):
-                detection_distance = np.min(observation[i])  # Get the smallest non-default distance in the observation
-                if detection_distance < max_detection_range + 1:  # Check if something was detected
-                    ray_end = (agent_center[0] + dx * detection_distance * self.cell_size,
-                        agent_center[1] + dy * detection_distance * self.cell_size)
-                    pygame.draw.line(self.screen, (0, 0, 0), agent_center, ray_end, 1)  # Draw ray line
+            # agent_center = (x * self.cell_size + self.cell_size // 2, y * self.cell_size + self.cell_size // 2)
+            # # Draw rays for detected objects
+            # for i, (dx, dy) in enumerate(directions):
+            #     detection_distance = np.min(observation[i])  # Get the smallest non-default distance in the observation
+            #     if detection_distance < max_detection_range + 1:  # Check if something was detected
+            #         ray_end = (agent_center[0] + dx * detection_distance * self.cell_size,
+            #             agent_center[1] + dy * detection_distance * self.cell_size)
+            #         pygame.draw.line(self.screen, (0, 0, 0), agent_center, ray_end, 1)  # Draw ray line
         
         # Render text surfaces
         self.predator_text = self.myfont.render(f'Predators: {self.stored_num_predators}', True, (0, 0, 0))            
@@ -333,11 +366,12 @@ class PreyPredatorEnv(AECEnv):
         self.food_text = self.myfont.render(f'Food: {len(self.food_positions)}', True, (0, 0, 0))
         prey_energy = [self.agents_energy[k] for k in self.agents_energy if "prey" in k]
         predator_energy = [self.agents_energy[k] for k in self.agents_energy if "predator" in k]
+        icon_size = 15
         if self.num_prey > 0:
             self.average_prey_energy_text = self.myfont.render(f'Prey Energy: {sum(prey_energy) / len(prey_energy):.2f}', True, (0, 0, 0))
             prey_text_pos = self.screen.get_width() - self.prey_text.get_width() - 10
             prey_energy_text_pos = self.screen.get_width() - self.average_prey_energy_text.get_width() - 10
-            self.draw_prey(((prey_text_pos - 20) / self.cell_size, 15 / self.cell_size))
+            self.draw_prey(((prey_text_pos - 20) / icon_size, 10 / icon_size), icon_size)
             self.screen.blit(self.prey_text, (prey_text_pos, 10))
             self.screen.blit(self.average_prey_energy_text, (prey_energy_text_pos, 100))
             
@@ -345,7 +379,7 @@ class PreyPredatorEnv(AECEnv):
             self.average_predator_energy_text = self.myfont.render(f'Predator Energy: {sum(predator_energy) / len(predator_energy):.2f}', True, (0, 0, 0))
             predator_energy_text_pos = self.screen.get_width() - self.average_predator_energy_text.get_width() - 10
             predator_text_pos = self.screen.get_width() - self.predator_text.get_width() - 10
-            self.draw_predator(((predator_text_pos - 20) / self.cell_size, 48 / self.cell_size))
+            self.draw_predator(((predator_text_pos - 20) / icon_size, 40 / icon_size), icon_size)
             self.screen.blit(self.predator_text, (predator_text_pos, 40))
             self.screen.blit(self.average_predator_energy_text, (predator_energy_text_pos, 130))
 
@@ -353,8 +387,14 @@ class PreyPredatorEnv(AECEnv):
             # Calculate positions for text (top right corner)
             food_text_pos = self.screen.get_width() - self.food_text.get_width() - 10
             # Draw the text surfaces onto the screen
-            self.draw_food(((food_text_pos - 20) / self.cell_size, 75 / self.cell_size))
+            self.draw_food(((food_text_pos - 20) / icon_size, 70 / icon_size), icon_size)
             self.screen.blit(self.food_text, (food_text_pos, 70))
+        for x in range(0, self.screen_size, self.cell_size):
+            pygame.draw.line(self.screen, (200, 200, 200), (x, 0), (x, self.screen_size))
+        # Horizontal lines
+        for y in range(0, self.screen_size, self.cell_size):
+            pygame.draw.line(self.screen, (200, 200, 200), (0, y), (self.screen_size, y))
+
 
         pygame.display.flip()
         self.clock.tick(60)  # Control the frame rate
