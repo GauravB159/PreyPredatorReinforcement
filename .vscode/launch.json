@@ -58,6 +58,7 @@
             "default": "single_prey",
             "type": "pickString",
             "options": [
+                {"label": "No Food", "value": "no_food"},
                 {"label": "Single Prey", "value": "single_prey"},
                 {"label": "Thank you!", "value": "thank_you"}
             ]
