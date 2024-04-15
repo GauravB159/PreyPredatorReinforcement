@@ -1,31 +1,31 @@
 {
-    "num_prey": 10,
+    "num_prey": 5,
     "prey_split_probability": 0.01,
     "food_energy_gain": 30,
-    "num_predators": 4,
+    "num_predators": 2,
     "max_food_count": 30,
     "food_probability": 0.8,
     "energy_per_step": 1,
     "use_distance_reward": false,
-    "grid_size": 40,
+    "grid_size": 25,
     "generator_params": {
         "prey": {
-            "coordinate": [20, 3],
-            "std_dev": 3
+            "coordinate": [12, 3],
+            "std_dev": 2
         },
         "predator": {
-            "coordinate": [38, 38],
-            "std_dev": 3
+            "coordinate": [23, 23],
+            "std_dev": 2
         },
         "food": {
-            "coordinate": [5, 26],
-            "std_dev": 5
+            "coordinate": [2, 23],
+            "std_dev": 4
         }
     },
     "max_episodes": 1000000,
-    "max_timesteps": 500,
+    "max_timesteps": 150,
     "update_timestep": 3000,
     "logging_interval": 100,
     "save_interval": 200,
-    "switch_train_episodes": 500
+    "switch_train_episodes": 200
 }
