@@ -60,6 +60,7 @@
             "options": [
                 {"label": "Multi Agent", "value": "multi_agent"},
                 {"label": "No Food", "value": "no_food"},
+                {"label": "Single Prey Small", "value": "single_prey_small"},
                 {"label": "Single Prey", "value": "single_prey"},
                 {"label": "Thank you!", "value": "thank_you"}
             ]
