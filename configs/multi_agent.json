@@ -3,7 +3,7 @@
     "prey_split_probability": 0.01,
     "food_energy_gain": 30,
     "num_predators": 2,
-    "max_food_count": 10,
+    "max_food_count": 7,
     "food_probability": 0.8,
     "energy_per_step": 1,
     "use_distance_reward": false,
