@@ -10,12 +10,15 @@
     "grid_size": 30,
     "generator_params": {
         "prey": {
+            "coordinate": [15, 0],
             "std_dev": 2
         },
         "predator": {
+            "coordinate": [30, 30],
             "std_dev": 2
         },
         "food": {
+            "coordinate": [0, 30],
             "std_dev": 2
         }
     },
