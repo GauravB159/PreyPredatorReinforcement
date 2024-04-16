@@ -58,6 +58,7 @@
             "default": "single_prey",
             "type": "pickString",
             "options": [
+                {"label": "Multi Agent Randomized", "value": "multi_agent_randomized"},
                 {"label": "Multi Agent", "value": "multi_agent"},
                 {"label": "No Food", "value": "no_food"},
                 {"label": "Single Prey Small", "value": "single_prey_small"},
