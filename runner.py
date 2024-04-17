@@ -162,7 +162,7 @@ class Runner:
         print(f'Episode {self.episode_offset + episode}\tEpisode Length: {self.ep_length}\tPrey Reward: {self.ep_prey_reward:.2f}\tPredator Reward: {self.ep_predator_reward:.2f}')
         
         if not self.test and episode % self.logging_interval == 0:
-            self.log_data()
+            self.log_data(episode)
             self.reset_logs()
     
     def run(self):
