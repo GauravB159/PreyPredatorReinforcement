@@ -4,9 +4,12 @@ import pygame
 import json
 from ppo import PPO
 from pathlib import Path
+from torch.utils.tensorboard import SummaryWriter
+
 class Runner:
     def __init__(self, config_name, load = False, render_mode = "non", test = False) -> None:
         config = json.loads(open(f"configs/{config_name}.json").read())
+        self.logger = SummaryWriter(f"tensorboard_logs/{config_name}")
         self.config_name = config_name
         self.config = config
         self.env = PreyPredatorEnv(render_mode=render_mode, **config)
@@ -130,6 +133,11 @@ class Runner:
             self.prey_ppo.save_model(f"models/{self.config_name}/prey_agent.pth")
             self.predator_ppo.save_model(f"models/{self.config_name}/predator_agent.pth")
         print(f'Episode {self.episode_offset + episode}\tEpisode Length: {self.ep_length}\tPrey Reward: {self.ep_prey_reward:.2f}\tPredator Reward: {self.ep_predator_reward:.2f}')
+        self.logger.add_scalar("Episode Length", self.ep_length, self.episode_offset + episode)
+        self.logger.add_scalar("Total Prey Reward", self.ep_prey_reward, self.episode_offset + episode)
+        self.logger.add_scalar("Total Predator Reward", self.ep_predator_reward, self.episode_offset + episode)
+        self.logger.add_scalar("Average Prey Reward", avg_ep_prey_reward, self.episode_offset + episode)
+        self.logger.add_scalar("Average Predator Reward", avg_ep_predator_reward, self.episode_offset + episode)
         if not self.test and episode % self.logging_interval == 0:
             total_avg_length = int(self.avg_length / self.logging_interval)
             avg_prey_reward = sum(self.avg_prey_rewards)/len(self.prey_rewards)
