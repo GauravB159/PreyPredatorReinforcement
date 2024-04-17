@@ -37,9 +37,9 @@ class Runner:
             self.predator_ppo.load_model(f"models/{self.config_name}/predator_agent.pth")
             if len(self.logs):
                 self.episode_offset = self.logs[-1]["Episode"]
-        self.reset()
+        self.reset_logs()
         
-    def reset(self):
+    def reset_logs(self):
         self.timestep_count = 0
         self.prey_rewards = []
         self.predator_rewards = []
@@ -106,6 +106,33 @@ class Runner:
             return True
         return False
     
+    def log_data(self, episode):
+        total_avg_length = int(self.avg_length / self.logging_interval)
+        avg_prey_reward = sum(self.avg_prey_rewards)/len(self.prey_rewards)
+        avg_predator_reward = sum(self.avg_predator_rewards)/len(self.predator_rewards)
+        prey_reward = sum(self.prey_rewards)/len(self.prey_rewards)
+        predator_reward = sum(self.predator_rewards)/len(self.predator_rewards)
+        
+        # Tensorboard
+        self.logger.add_scalar("Episode Length", self.ep_length, self.episode_offset + episode)
+        self.logger.add_scalar("Total Prey Reward", prey_reward, self.episode_offset + episode)
+        self.logger.add_scalar("Total Predator Reward", predator_reward, self.episode_offset + episode)
+        self.logger.add_scalar("Average Prey Reward", avg_prey_reward, self.episode_offset + episode)
+        self.logger.add_scalar("Average Predator Reward", avg_predator_reward, self.episode_offset + episode)
+        self.logger.flush()
+        
+        # CSV Log
+        log = {
+            "Episode": self.episode_offset + episode,
+            "Avg length": total_avg_length, 
+            "Total prey reward": prey_reward,
+            "Avg prey reward": avg_prey_reward,
+            "Total predator reward": predator_reward,
+            "Avg predator reward": avg_predator_reward
+        }
+        self.logs.append(log)
+        pd.DataFrame(self.logs).to_csv(f"logs/{self.config_name}.csv", index=None)
+    
     def run_episode(self, episode):
         
         if episode % self.switch_train_episodes == 0:
@@ -133,33 +160,14 @@ class Runner:
             self.prey_ppo.save_model(f"models/{self.config_name}/prey_agent.pth")
             self.predator_ppo.save_model(f"models/{self.config_name}/predator_agent.pth")
         print(f'Episode {self.episode_offset + episode}\tEpisode Length: {self.ep_length}\tPrey Reward: {self.ep_prey_reward:.2f}\tPredator Reward: {self.ep_predator_reward:.2f}')
-        self.logger.add_scalar("Episode Length", self.ep_length, self.episode_offset + episode)
-        self.logger.add_scalar("Total Prey Reward", self.ep_prey_reward, self.episode_offset + episode)
-        self.logger.add_scalar("Total Predator Reward", self.ep_predator_reward, self.episode_offset + episode)
-        self.logger.add_scalar("Average Prey Reward", avg_ep_prey_reward, self.episode_offset + episode)
-        self.logger.add_scalar("Average Predator Reward", avg_ep_predator_reward, self.episode_offset + episode)
+        
         if not self.test and episode % self.logging_interval == 0:
-            total_avg_length = int(self.avg_length / self.logging_interval)
-            avg_prey_reward = sum(self.avg_prey_rewards)/len(self.prey_rewards)
-            avg_predator_reward = sum(self.avg_predator_rewards)/len(self.predator_rewards)
-            prey_reward = sum(self.prey_rewards)/len(self.prey_rewards)
-            predator_reward = sum(self.predator_rewards)/len(self.predator_rewards)
-            log = {
-                "Episode": self.episode_offset + episode,
-                "Avg length": total_avg_length, 
-                "Total prey reward": prey_reward,
-                "Avg prey reward": avg_prey_reward,
-                "Total predator reward": predator_reward,
-                "Avg predator reward": avg_predator_reward
-            }
-            print(log)
-            print()
-            self.logs.append(log)
-            pd.DataFrame(self.logs).to_csv(f"logs/{self.config_name}.csv", index=None)
-            self.reset()
+            self.log_data()
+            self.reset_logs()
     
     def run(self):
         for episode in range(1, self.max_episodes+1):
             self.reset_episode()
             self.run_episode(episode=episode) 
+        self.logger.close()
         self.env.close()    
